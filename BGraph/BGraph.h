@@ -6,9 +6,614 @@
 #include <d3dcompiler.h>
 #include <string>
 
+const char* htmlVectorShader = R"(
 
 
-void SetupTextureBuffers(ID3D12Device10* device, ID3D12GraphicsCommandList* commandList, char* file, ID3D12Resource** upload, ID3D12Resource** gpuBuffer, ID3D12DescriptorHeap* cbvsrvuavHeap, int cbvsrvuavIndex)
+cbuffer Matrices : register(b0)
+{
+    int renderWidth;
+    int renderHeight;
+    float cr;
+    float cg;
+    float cb;
+    float ca;
+    int width;
+    int height;
+    float bGr;
+    float bGg;
+    float bGb;
+    float bGa;
+    int brTL;
+    int brTR;
+    int brBL;
+    int brBR;
+    int bools; //bit 0 is for draw image;
+    int justifyContent;
+    int alignItems;
+    float blr;
+    float blg;
+    float blb;
+    float bla;
+    float btr;
+    float btg;
+    float btb;
+    float bta;
+    float brr;
+    float brg;
+    float brb;
+    float bra;
+    float bbr;
+    float bbg;
+    float bbb;
+    float bba;
+    int bTl;
+    int bTt;
+    int bTr;
+    int bTb;
+    float x;
+    float y;
+}
+
+Texture2D image : register(t0);
+SamplerState sampler1 : register(s0);
+
+struct PSInput
+{
+    float4 position : SV_POSITION;
+    float2 texcoords : TEXCOORD;
+};
+
+PSInput VSMain(float2 position : POSITION, float2 texcoords: TEXCOORD)
+{
+    
+    PSInput result;
+    
+    float percW = (width / (float) renderWidth);
+    float percH = (height / (float) renderHeight);
+    
+    float baseShiftX = (((float) renderWidth / 2) / (float) renderWidth) * -2; //moving the box to x == 0 or L
+    float baseShiftY = (((float) renderHeight / 2) / (float) renderHeight) * 2; //moving the box to y == 0 or T
+    
+    float shiftPosX = x / (float) renderWidth;          //Use this to move to appropriate X
+    float shiftPosY = (y / (float) renderHeight) * -1;  //Use this to move to appropriate Y
+    
+    float xScaledAndShifted = ((position.x * percW) + percW) + baseShiftX + (shiftPosX * 2);
+    float yScaledAndShifted = ((position.y * percH) - percH) + baseShiftY + (shiftPosY * 2);
+    
+    //
+    
+    result.position = float4(float3(float2( xScaledAndShifted, yScaledAndShifted), 0), 1.0f);
+    result.texcoords = texcoords;
+    return result;
+}
+
+
+
+)";
+
+
+const char* htmlPixelShader = R"(
+
+cbuffer Matrices : register(b0)
+{
+    int renderWidth;
+    int renderHeight;
+    float cr;
+    float cg;
+    float cb;
+    float ca;
+    int width;
+    int height;
+    float bGr;
+    float bGg;
+    float bGb;
+    float bGa;
+    int brTL;
+    int brTR;
+    int brBL;
+    int brBR;
+    int bools; //bit 0 is for draw image;
+    int justifyContent;
+    int alignItems;
+    float blr;
+    float blg;
+    float blb;
+    float bla;
+    float btr;
+    float btg;
+    float btb;
+    float bta;
+    float brr;
+    float brg;
+    float brb;
+    float bra;
+    float bbr;
+    float bbg;
+    float bbb;
+    float bba;
+    int bTl;
+    int bTt;
+    int bTr;
+    int bTb;
+    float x;
+    float y;
+}
+
+Texture2D image : register(t0);
+SamplerState sampler1 : register(s0);
+
+struct PSInput
+{
+    float4 position : SV_POSITION;
+    float2 texcoords : TEXCOORD;
+};
+
+
+float4 PSMain(PSInput input) : SV_TARGET
+{
+    bool drawImage = (bools & 0x1) == 0x1;
+    
+    if(!drawImage)
+    {
+        float ypos = y; //- (actualHeight / 2);
+        float xpos = x; // - (actualWidth / 2);
+    
+        float4 bordercolor = float4(blr, blg, blb, bla);
+    
+        float4 bordercolorleft = float4(blr, blg, blb, bla);
+        float4 bordercolortop = float4(btr, btg, btb, bta);
+        float4 bordercolorright = float4(brr, brg, brb, bra);
+        float4 bordercolorbottom = float4(bbr, bbg, bbb, bba);
+        float4 backgroundcolor = float4(bGr, bGg, bGb, bGa);
+    
+    
+    
+        //float borderThickness = 100;
+    
+    
+        if (brTL > 0)
+        {
+            float pivotX = xpos + brTL;
+            float pivotY = ypos + brTL;
+            
+            if (input.position.x > xpos && input.position.x < pivotX && input.position.y > ypos && input.position.y < pivotY)
+            {
+                float distance = sqrt(pow(pivotX - input.position.x, 2) + pow(pivotY - input.position.y, 2));
+                if (distance > brTL)
+                    discard;
+            }
+        }
+    
+    
+        if (brTL > 0 && (brTL > bTl || brTL > bTt) && input.position.x < xpos + (width / 2) && input.position.y < ypos + (height / 2))
+        {
+            float nxpos = xpos + bTl;
+            float nypos = ypos + bTt;
+        
+            float a = (nypos - ypos) / (nxpos - xpos);
+        
+            float ly = ((input.position.x - xpos) * a);
+        
+            float rx = max(0, brTL - bTl);
+            float ry = max(0, brTL - bTt);
+
+            float dx = input.position.x - (nxpos + rx);
+            float dy = input.position.y - (nypos + ry);
+        
+            if (rx > 0 && ry > 0)
+            {
+                float ellipseVal = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
+                if (ellipseVal > 1.0 && input.position.x < (nxpos + rx) && input.position.y < (nypos + ry))
+                    if(ly < input.position.y - ypos)
+                        return bordercolorleft; //discard; // inside inner ellipse
+                    else
+                        return bordercolortop;
+            }
+        }
+    
+        if (brTR > 0)
+        {
+            float pivotX = xpos + width - brTR;
+            float pivotY = ypos + brTR;
+            
+            if (input.position.x > pivotX && input.position.x < xpos + width && input.position.y > ypos && input.position.y < pivotY)
+            {
+                float distance = sqrt(pow(pivotX - input.position.x, 2) + pow(pivotY - input.position.y, 2));
+                if (distance > brTR)
+                    discard;
+            }
+        }
+    
+        if (brTR > 0 && (brTR > bTr || brTR > bTt) && input.position.x > xpos + (width / 2) && input.position.y < ypos + (height / 2))
+        {
+            float nxpos = xpos + width - bTr;
+            float nypos = ypos + bTt;
+        
+            float a = (nypos - ypos) / (nxpos - (xpos + width));
+            float ly = ((input.position.x - (xpos + width)) * a);
+        
+            float rx = max(0, brTR - bTr);
+            float ry = max(0, brTR - bTt);
+
+            float dx = input.position.x - (nxpos - rx);
+            float dy = input.position.y - (nypos + ry);
+        
+            if (rx > 0 && ry > 0)
+            {
+                float ellipseVal = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
+                if (ellipseVal > 1.0 && input.position.x > (nxpos - rx) && input.position.y < (nypos + ry))
+                    if (ly < input.position.y - ypos)
+                        return bordercolorright; //discard; // inside inner ellipse
+                    else
+                        return bordercolortop; //discard; // inside inner ellipse
+            }
+        }
+    
+        if (brBL > 0)
+        {
+            float pivotX = xpos + brBL;
+            float pivotY = ypos + height - brBL;
+            
+            if (input.position.x > xpos && input.position.x < pivotX && input.position.y < ypos + height && input.position.y > pivotY)
+            {
+                float distance = sqrt(pow(pivotX - input.position.x, 2) + pow(pivotY - input.position.y, 2));
+                if (distance > brBL)
+                    discard;
+            }
+        }
+    
+        if (brBL > 0 && (brBL > bTl || brBL > bTb) && input.position.x < xpos + (width / 2) && input.position.y > ypos + (height / 2))
+        {
+            float nxpos = xpos + bTl;
+            float nypos = ypos + height - bTb;
+        
+            float a = (nypos - (ypos + height)) / (nxpos - (xpos));
+            float ly = ((input.position.x - (xpos)) * a);
+        
+            float rx = max(0, brBL - bTl);
+            float ry = max(0, brBL - bTb);
+
+            float dx = input.position.x - (nxpos + rx);
+            float dy = input.position.y - (nypos - ry);
+        
+            if (rx > 0 && ry > 0)
+            {
+                float ellipseVal = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
+                if (ellipseVal > 1.0 && input.position.x < (nxpos + rx) && input.position.y > (nypos - ry))
+                    if (ly < input.position.y - (ypos + height))
+                        return bordercolorbottom; //discard; // inside inner ellipse
+                    else
+                        return bordercolorleft; //discard; // inside inner ellipse
+            }
+        }
+    
+        if (brBR > 0)
+        {
+            float pivotX = xpos + width - brBR;
+            float pivotY = ypos + height - brBR;
+            
+            if (input.position.x > pivotX && input.position.x < xpos + width && input.position.y < ypos + height && input.position.y > pivotY)
+            {
+                float distance = sqrt(pow(pivotX - input.position.x, 2) + pow(pivotY - input.position.y, 2));
+                if (distance > brBR)
+                    discard;
+            }
+        }
+    
+        if (brBR > 0 && (brBR > bTr || brBL > bTb) && input.position.x > xpos + (width / 2) && input.position.y > ypos + (height / 2))
+        {
+            float nxpos = xpos + width - bTr;
+            float nypos = ypos + height - bTb;
+        
+            float a = (nypos - (ypos + height)) / (nxpos - (xpos + width));
+            float ly = ((input.position.x - (xpos + width)) * a);
+        
+            float rx = max(0, brBL - bTr);
+            float ry = max(0, brBL - bTb);
+
+            float dx = input.position.x - (nxpos - rx);
+            float dy = input.position.y - (nypos - ry);
+        
+            if (rx > 0 && ry > 0)
+            {
+                float ellipseVal = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
+                if (ellipseVal > 1.0 && input.position.x > (nxpos - rx) && input.position.y > (nypos - ry))
+                    if (ly < input.position.y - (ypos + height))
+                        return bordercolorbottom; //discard; // inside inner ellipse
+                    else
+                        return bordercolorright; //discard; // inside inner ellipse
+            }
+        }
+    
+    
+    
+        if (bTl > 0)
+        {
+        
+            if ((input.position.x > xpos && input.position.x < xpos + bTl && input.position.y > ypos + bTt && input.position.y < ypos + height - bTb))
+            {
+                return bordercolorleft;
+            }
+        
+            if ((input.position.x > xpos && input.position.x < xpos + bTl && input.position.y < ypos + bTt))
+            {
+                float x0 = xpos;
+                float y0 = ypos;
+            
+                float x1 = xpos;
+                float y1 = y0 + bTt;
+            
+                float x2 = x0 + bTl;
+                float y2 = y0 + bTt;
+            
+                float edgeAB = (input.position.x - x0) * (y1 - y0) - (input.position.y - y0) * (x1 - x0);
+                float edgeBC = (input.position.x - x1) * (y2 - y1) - (input.position.y - y1) * (x2 - x1);
+                float edgeCA = (input.position.x - x2) * (y0 - y2) - (input.position.y - y2) * (x0 - x2);
+
+            
+                if ((edgeAB >= 0) && (edgeBC >= 0) && (edgeCA >= 0))
+                    return bordercolorleft;
+            }
+        
+            if ((input.position.x > xpos && input.position.x < xpos + bTl && input.position.y > ypos + height - bTb))
+            {            
+                float x0 = xpos;
+                float y0 = ypos + height;
+            
+                float x1 = xpos;
+                float y1 = y0 - bTb;
+            
+                float x2 = x0 + bTl;
+                float y2 = y0 - bTb;
+            
+                float edgeAB = (input.position.x - x0) * (y1 - y0) - (input.position.y - y0) * (x1 - x0);
+                float edgeBC = (input.position.x - x1) * (y2 - y1) - (input.position.y - y1) * (x2 - x1);
+                float edgeCA = (input.position.x - x2) * (y0 - y2) - (input.position.y - y2) * (x0 - x2);
+
+            
+                if ((edgeAB <= 0) && (edgeBC <= 0) && (edgeCA <= 0))
+                    return bordercolorleft;
+            }
+        }
+    
+        if (bTt > 0)
+        {
+        
+            if ((input.position.y > ypos && input.position.y < ypos + bTt && input.position.x > xpos + bTl && input.position.x < xpos + width - bTr))
+            {
+                return bordercolortop;
+            }
+        
+            if ((input.position.y > ypos && input.position.y < ypos + bTt && input.position.x < xpos + bTl))
+            {
+                float x0 = xpos + bTl;
+                float y0 = ypos + bTt;
+            
+                float x1 = xpos + bTl;
+                float y1 = ypos;
+            
+                float x2 = xpos;
+                float y2 = ypos;
+            
+                float edgeAB = (input.position.x - x0) * (y1 - y0) - (input.position.y - y0) * (x1 - x0);
+                float edgeBC = (input.position.x - x1) * (y2 - y1) - (input.position.y - y1) * (x2 - x1);
+                float edgeCA = (input.position.x - x2) * (y0 - y2) - (input.position.y - y2) * (x0 - x2);
+
+            
+                if ((edgeAB >= 0) && (edgeBC >= 0) && (edgeCA >= 0))
+                    return bordercolortop;
+            }
+        
+            if ((input.position.y > ypos && input.position.y < ypos + bTt && input.position.x > xpos + width - bTr))
+            {
+                float x0 = xpos + width;
+                float y0 = ypos;
+            
+                float x1 = x0 - bTr;
+                float y1 = ypos;
+            
+                float x2 = x1;
+                float y2 = ypos + bTt;
+            
+                float edgeAB = (input.position.x - x0) * (y1 - y0) - (input.position.y - y0) * (x1 - x0);
+                float edgeBC = (input.position.x - x1) * (y2 - y1) - (input.position.y - y1) * (x2 - x1);
+                float edgeCA = (input.position.x - x2) * (y0 - y2) - (input.position.y - y2) * (x0 - x2);
+
+            
+                if ((edgeAB >= 0) && (edgeBC >= 0) && (edgeCA >= 0))
+                    return bordercolortop;
+            }
+        }
+    
+        if (bTr > 0)
+        {
+        
+            if ((input.position.x < xpos + width && input.position.x > xpos + width - bTr && input.position.y > ypos + bTt && input.position.y < ypos + height - bTb))
+            {
+                return bordercolorright;
+            }
+        
+            if ((input.position.x < xpos + width && input.position.x > xpos + width - bTr && input.position.y < ypos + bTt))
+            {
+                float x0 = xpos + width;
+                float y0 = ypos;
+            
+                float x1 = x0;
+                float y1 = ypos + bTt;
+            
+                float x2 = x0 - bTr;
+                float y2 = y1;
+            
+                float edgeAB = (input.position.x - x0) * (y1 - y0) - (input.position.y - y0) * (x1 - x0);
+                float edgeBC = (input.position.x - x1) * (y2 - y1) - (input.position.y - y1) * (x2 - x1);
+                float edgeCA = (input.position.x - x2) * (y0 - y2) - (input.position.y - y2) * (x0 - x2);
+
+            
+                if ((edgeAB <= 0) && (edgeBC <= 0) && (edgeCA <= 0))
+                    return bordercolorright;
+            }
+        
+            if ((input.position.x < xpos + width && input.position.x > xpos + width - bTr && input.position.y > ypos + height - bTb))
+            {
+                float x0 = xpos + width;
+                float y0 = ypos + height - bTb;
+            
+                float x1 = x0;
+                float y1 = y0 + bTb;
+            
+                float x2 = x0 - bTr;
+                float y2 = y0;
+            
+                float edgeAB = (input.position.x - x0) * (y1 - y0) - (input.position.y - y0) * (x1 - x0);
+                float edgeBC = (input.position.x - x1) * (y2 - y1) - (input.position.y - y1) * (x2 - x1);
+                float edgeCA = (input.position.x - x2) * (y0 - y2) - (input.position.y - y2) * (x0 - x2);
+
+            
+                if ((edgeAB <= 0) && (edgeBC <= 0) && (edgeCA <= 0))
+                    return bordercolorright;
+            }
+        }
+    
+    
+        if (bTb > 0)
+        {
+            if ((input.position.y < ypos + height && input.position.y > ypos + height - bTb && input.position.x > xpos + bTl && input.position.x < xpos + width - bTr))
+            {
+                return bordercolorbottom;
+            }
+        
+            if ((input.position.y < ypos + height && input.position.y > ypos + height - bTb && input.position.x < xpos + bTl))
+            {
+                float x0 = xpos;
+                float y0 = ypos + height;
+            
+                float x1 = x0 + bTl;
+                float y1 = y0 - bTb;
+            
+                float x2 = x1;
+                float y2 = y0;
+            
+                float edgeAB = (input.position.x - x0) * (y1 - y0) - (input.position.y - y0) * (x1 - x0);
+                float edgeBC = (input.position.x - x1) * (y2 - y1) - (input.position.y - y1) * (x2 - x1);
+                float edgeCA = (input.position.x - x2) * (y0 - y2) - (input.position.y - y2) * (x0 - x2);
+
+            
+                if ((edgeAB <= 0) && (edgeBC <= 0) && (edgeCA <= 0))
+                    return bordercolorbottom;
+            }
+        
+            if ((input.position.y < ypos + height && input.position.y > ypos + height - bTb && input.position.x > xpos + width - bTr))
+            {
+                float x0 = xpos + width - bTr;
+                float y0 = ypos + height - bTb;
+            
+                float x1 = x0 + bTr;
+                float y1 = y0 + bTb;
+            
+                float x2 = x0;
+                float y2 = y1;
+            
+                float edgeAB = (input.position.x - x0) * (y1 - y0) - (input.position.y - y0) * (x1 - x0);
+                float edgeBC = (input.position.x - x1) * (y2 - y1) - (input.position.y - y1) * (x2 - x1);
+                float edgeCA = (input.position.x - x2) * (y0 - y2) - (input.position.y - y2) * (x0 - x2);
+
+            
+                if ((edgeAB <= 0) && (edgeBC <= 0) && (edgeCA <= 0))
+                    return bordercolorbottom;
+            }
+        }
+    
+        return float4(bGr, bGg, bGb, bGa);
+    }
+    else
+    {
+        float4 textureValue = image.Sample(sampler1, input.texcoords);
+        return textureValue;
+    }
+    return float4(0, 0, 0, 1);
+}
+
+
+)";
+
+const char* textVectorShader = R"(
+cbuffer Positioning : register(b0)
+{
+    int renderWidth;
+    int renderHeight;
+    int font;
+    int character;
+    int fontsize;
+    int percShiftX;
+    int percShiftY;
+	float scaleX;
+	float scaleY;
+    int x;
+    int y;
+}
+
+Texture2D image : register(t0);
+SamplerState sampler1 : register(s0);
+
+struct PSInput
+{
+    float4 position : SV_POSITION;
+    float2 color : TEXCOORD;
+};
+
+PSInput VSMain(float2 position : POSITION, float2 texcoord : TEXCOORD)
+{
+    PSInput ps;
+    
+	float scale = 1/1100.0f;
+
+	position *= float2(scale * fontsize, scale * fontsize);
+    //position -= float2(0.5f, -0.5f);
+    //position += float2(percShiftX, -percShiftY);
+    
+    ps.position = float4(position, 0.0, 1.0);
+    ps.color = texcoord;
+
+    return ps;
+}
+)";
+
+const char* textPixelShader = R"(
+cbuffer Positioning : register(b0)
+{
+    int renderWidth;
+    int renderHeight;
+    int font;
+    int character;
+    int fontsize;
+    int percShiftX;
+    int percShiftY;
+	float scaleX;
+	float scaleY;
+    int x;
+    int y;
+}
+
+Texture2D image : register(t0);
+SamplerState sampler1 : register(s0);
+
+struct PSInput
+{
+    float4 position : SV_POSITION;
+    float2 color : TEXCOORD;
+};
+
+float4 PSMain(PSInput input) : SV_TARGET
+{
+	input.color *= float2(scaleX, scaleY);
+	input.color.x += scaleX * character;
+	input.color.y += scaleY * font;
+    float4 result = image.Sample(sampler1, input.color);
+    return result;
+}
+)";
+
+void SetupTextureBuffers(ID3D12Device10* device, ID3D12GraphicsCommandList* commandList, const char* file, ID3D12Resource** upload, ID3D12Resource** gpuBuffer, ID3D12DescriptorHeap* cbvsrvuavHeap, int cbvsrvuavIndex, int* pwidth, int* pheight)
 {
 	bool recalculated = false;
 	int width;
@@ -121,6 +726,8 @@ void SetupTextureBuffers(ID3D12Device10* device, ID3D12GraphicsCommandList* comm
 		device->CreateShaderResourceView((*gpuBuffer), &srvd, texHnd);
 	}
 	stbi_image_free(data);
+	*pwidth = width;
+	*pheight = height;
 }
 
 class DrawSettings
@@ -145,12 +752,30 @@ public:
 	float y;
 };
 
+class TextSettings
+{
+public:
+    int renderWidth;
+    int renderHeight;
+    int font;
+    int character;
+    int fontsize;
+    int percShiftX;
+    int percShiftY;
+	float scaleX;
+	float scaleY;
+    int x;
+    int y;
+};
+
 class ImageStorage
 {
 public:
 	int index = -1;
 	ID3D12Resource* resource;
 	ID3D12Resource* upload;
+	int width;
+	int height;
 };
 
 class GraphicsModule2D
@@ -418,7 +1043,7 @@ public:
 		view->Format = DXGI_FORMAT_R32_UINT;
 	}
 	
-	void Draw(ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawSettings* settings, D3D12_GPU_DESCRIPTOR_HANDLE* texViewHandle)
+	void Draw(ID3D12Device10* device, ID3D12GraphicsCommandList* cL, UINT settingSize, void* settings, D3D12_GPU_DESCRIPTOR_HANDLE* texViewHandle)
 	{
 		if (this->graphicsModule->indexed)
 			cL->IASetIndexBuffer(&this->Indices);
@@ -430,7 +1055,7 @@ public:
 		if (texViewHandle != NULL)
 			cL->SetGraphicsRootDescriptorTable(1, *texViewHandle);
 
-		cL->SetGraphicsRoot32BitConstants(0, (sizeof(DrawSettings) / 4), settings, 0);
+		cL->SetGraphicsRoot32BitConstants(0, settingSize, settings, 0);
 		cL->DrawIndexedInstanced(indexCount, 1, 0, 0, 0);
 	}
 
@@ -459,7 +1084,8 @@ public:
 class DrawingData
 {
 public:
-	GraphicsModel* model;
+	GraphicsModel* htmlModel;
+	GraphicsModel* textModel;
 	BLIB::PointerList* modelTextures = new BLIB::PointerList();
 	ID3D12DescriptorHeap* textureHeap;
 	int textureHeapCount = 0;
@@ -468,6 +1094,11 @@ public:
 
 class BGraph
 {
+	const char* textTextureLocation = "text.png";
+	int textureHeapIncrementSize = 0;
+
+	int drawSettingSize = (sizeof(DrawSettings) / 4);
+	int textSettingSize = (sizeof(TextSettings) / 4);
 	std::vector<char*> files;	//name and fn*
 	BLIB::PointerList* functions = new BLIB::PointerList();	//name and fn*
 	BLIB::PointerList* pages = new BLIB::PointerList();		//name and json
@@ -481,7 +1112,8 @@ class BGraph
 
 	ID3D12Device10* device = NULL;
 	ID3D12GraphicsCommandList* commandList = NULL;
-	GraphicsModule2D* gModule = NULL;
+	GraphicsModule2D* htmlGModule = NULL;
+	GraphicsModule2D* textGModule = NULL;
 
 	int height;
 	int width;
@@ -534,7 +1166,8 @@ public:
 	{
 		this->device = device;
 		this->commandList = commandList;
-		Create2DPipeline();
+		CreateHTMLPipeline();
+		CreateTextPipeline();
 
 		D3D12_DESCRIPTOR_HEAP_DESC dhDesc = {};
 		dhDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
@@ -544,7 +1177,11 @@ public:
 
 		device->CreateDescriptorHeap(&dhDesc, __uuidof(ID3D12DescriptorHeap), (void**)&(dData->textureHeap)) == S_OK ? "" : throw "Broken";
 
-		dData->model = new GraphicsModel(device, commandList, gModule);
+		dData->htmlModel = new GraphicsModel(device, commandList, htmlGModule);
+		dData->textModel = new GraphicsModel(device, commandList, textGModule);
+
+		textureHeapIncrementSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		AddTexture(device, commandList, textTextureLocation);
 	}
 
 	void HandleClick(int x, int y)
@@ -592,13 +1229,13 @@ public:
 		}
 	}
 
-	void Create2DPipeline()
+	void CreateHTMLPipeline()
 	{
-		ID3D12PipelineState* pipeline;
-		ID3D12RootSignature* root;
+		ID3D12PipelineState* pipeline = NULL;
+		ID3D12RootSignature* root = NULL;
 
 		D3D12_ROOT_CONSTANTS matrices = {};
-		matrices.Num32BitValues = (sizeof(DrawSettings) / 4) + 1;
+		matrices.Num32BitValues = drawSettingSize;
 		matrices.RegisterSpace = 0;
 		matrices.ShaderRegister = 0;
 
@@ -633,7 +1270,7 @@ public:
 		ssDesc.MaxLOD = D3D12_FLOAT32_MAX;
 		ssDesc.MinLOD = 0;
 		ssDesc.MipLODBias = 0;
-		ssDesc.BorderColor == D3D12_STATIC_BORDER_COLOR::D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+		ssDesc.BorderColor = D3D12_STATIC_BORDER_COLOR::D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
 
 		D3D12_ROOT_SIGNATURE_DESC charRDesc = {};
 		charRDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
@@ -657,7 +1294,7 @@ public:
 		ID3DBlob* psBlob = NULL;
 		ID3DBlob* pserror = NULL;
 
-		D3DCompileFromFile(L"C:\\Users\\brand\\source\\repos\\Graphics Again\\Graphics Again\\2dshader.hlsl", NULL, NULL, "VSMain", "vs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, NULL, &vsBlob, &vserror) == S_OK ? "" : throw "Failed To Compile Vertex Shader!";
+		D3DCompile(htmlVectorShader, BLIB::Strings::Length(htmlVectorShader), NULL, NULL, NULL, "VSMain", "vs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, NULL, &vsBlob, &vserror);
 
 		if (vserror != NULL)
 		{
@@ -667,7 +1304,7 @@ public:
 			vserror->Release();
 		}
 
-		D3DCompileFromFile(L"C:\\Users\\brand\\source\\repos\\Graphics Again\\Graphics Again\\2dshader.hlsl", NULL, NULL, "PSMain", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, NULL, &psBlob, &pserror) == S_OK ? "" : throw "Failed To Compile Vertex Shader!";
+		D3DCompile(htmlPixelShader, BLIB::Strings::Length(htmlPixelShader), NULL, NULL, NULL, "PSMain", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, NULL, &psBlob, &pserror);
 
 		if (pserror != NULL)
 		{
@@ -780,21 +1417,236 @@ public:
 		vsBlob->Release();
 		psBlob->Release();
 
-		gModule = new GraphicsModule2D(pipeline, root);
-		gModule->indexed = true;
-		gModule->iaPosition = 0;
-		gModule->iaTexCoords = 1;
-		gModule->topology = D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		htmlGModule = new GraphicsModule2D(pipeline, root);
+		htmlGModule->indexed = true;
+		htmlGModule->iaPosition = 0;
+		htmlGModule->iaTexCoords = 1;
+		htmlGModule->topology = D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	}
+
+	void CreateTextPipeline()
+	{
+		ID3D12PipelineState* pipeline = NULL;
+		ID3D12RootSignature* root = NULL;
+
+		D3D12_ROOT_CONSTANTS matrices = {};
+		matrices.Num32BitValues = textSettingSize;
+		matrices.RegisterSpace = 0;
+		matrices.ShaderRegister = 0;
+
+		D3D12_ROOT_PARAMETER params[2] = {};
+		params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+		params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		params[0].Constants = matrices;
+
+		D3D12_DESCRIPTOR_RANGE range = {};
+		range.BaseShaderRegister = 0;
+		range.NumDescriptors = 1;
+		range.OffsetInDescriptorsFromTableStart = 0;
+		range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+		range.RegisterSpace = 0;
+
+		D3D12_ROOT_DESCRIPTOR_TABLE tbl = {};
+		tbl.NumDescriptorRanges = 1;
+		tbl.pDescriptorRanges = &range;
+
+		params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		params[1].DescriptorTable = tbl;
+		params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+
+		D3D12_STATIC_SAMPLER_DESC ssDesc = {};
+		ssDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+		ssDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		ssDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		ssDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		ssDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+		ssDesc.MaxAnisotropy = 16;
+		ssDesc.MaxLOD = D3D12_FLOAT32_MAX;
+		ssDesc.MinLOD = 0;
+		ssDesc.MipLODBias = 0;
+		ssDesc.BorderColor = D3D12_STATIC_BORDER_COLOR::D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+
+		D3D12_ROOT_SIGNATURE_DESC charRDesc = {};
+		charRDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+		charRDesc.NumParameters = 2;
+		charRDesc.pParameters = params;
+		charRDesc.NumStaticSamplers = 1;
+		charRDesc.pStaticSamplers = &ssDesc;
+
+		ID3DBlob* blob = NULL;
+		ID3DBlob* error = NULL;
+
+		D3D12SerializeRootSignature(&charRDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &blob, &error) == S_OK ? "" : throw "";
+		this->device->CreateRootSignature(0, blob->GetBufferPointer(), blob->GetBufferSize(), __uuidof(ID3D12RootSignature), (void**)&root) == S_OK ? "" : throw "Failed To Create RootSig";
+
+		blob->Release();
+		if (error != NULL)
+			error->Release();
+
+		ID3DBlob* vsBlob = NULL;
+		ID3DBlob* vserror = NULL;
+		ID3DBlob* psBlob = NULL;
+		ID3DBlob* pserror = NULL;
+
+		D3DCompile(textVectorShader, BLIB::Strings::Length(textVectorShader), NULL, NULL, NULL, "VSMain", "vs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, NULL, &vsBlob, &vserror);
+
+		if (vserror != NULL)
+		{
+			char* vscerr = (char*)vserror->GetBufferPointer();
+			OutputDebugStringA(vscerr);
+			OutputDebugStringA("\r\nPS:");
+			vserror->Release();
+		}
+
+		D3DCompile(textPixelShader, BLIB::Strings::Length(textPixelShader), NULL, NULL, NULL, "PSMain", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, NULL, &psBlob, &pserror);
+
+		if (pserror != NULL)
+		{
+			char* pscerr = (char*)pserror->GetBufferPointer();
+			OutputDebugStringA(pscerr);
+			pserror->Release();
+		}
+
+		D3D12_INPUT_ELEMENT_DESC iel[2];
+		iel[0].AlignedByteOffset = 0;
+		iel[0].Format = DXGI_FORMAT_R32G32_FLOAT;
+		iel[0].InputSlot = 0;
+		iel[0].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+		iel[0].InstanceDataStepRate = 0;
+		iel[0].SemanticIndex = 0;
+		iel[0].SemanticName = "POSITION";
+
+		iel[1].AlignedByteOffset = 0;
+		iel[1].Format = DXGI_FORMAT_R32G32_FLOAT;
+		iel[1].InputSlot = 1;
+		iel[1].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+		iel[1].InstanceDataStepRate = 0;
+		iel[1].SemanticIndex = 0;
+		iel[1].SemanticName = "TEXCOORD";
+
+		D3D12_INPUT_LAYOUT_DESC ild;
+		ild.NumElements = 2;
+		ild.pInputElementDescs = iel;
+
+		D3D12_SHADER_BYTECODE vsC = {};
+		vsC.BytecodeLength = vsBlob->GetBufferSize();
+		vsC.pShaderBytecode = vsBlob->GetBufferPointer();
+
+		D3D12_SHADER_BYTECODE psC = {};
+		psC.BytecodeLength = psBlob->GetBufferSize();
+		psC.pShaderBytecode = psBlob->GetBufferPointer();
+
+		D3D12_RENDER_TARGET_BLEND_DESC rtBlend = {};
+		rtBlend.BlendEnable = true;
+		rtBlend.LogicOpEnable = false;
+		rtBlend.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+		rtBlend.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+		rtBlend.BlendOp = D3D12_BLEND_OP_ADD;
+		rtBlend.SrcBlendAlpha = D3D12_BLEND_ONE;
+		rtBlend.DestBlendAlpha = D3D12_BLEND_ZERO;
+		rtBlend.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+		rtBlend.LogicOp = D3D12_LOGIC_OP_NOOP;
+		rtBlend.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+
+		D3D12_BLEND_DESC blDesc = {};
+		blDesc.AlphaToCoverageEnable = false;
+		blDesc.IndependentBlendEnable = false;
+		blDesc.RenderTarget[0] = rtBlend;
+
+		D3D12_DEPTH_STENCILOP_DESC bfdsoDesc = {};
+		bfdsoDesc.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+		bfdsoDesc.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+		bfdsoDesc.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+		bfdsoDesc.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+
+		D3D12_DEPTH_STENCILOP_DESC ffdsoDesc = {};
+		ffdsoDesc.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+		ffdsoDesc.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+		ffdsoDesc.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+		ffdsoDesc.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+
+		D3D12_DEPTH_STENCIL_DESC stDesc;
+		stDesc.DepthEnable = false;
+		stDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+		stDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+		stDesc.StencilEnable = false;
+		stDesc.StencilReadMask = 0xFF;
+		stDesc.StencilWriteMask = 0xFF;
+		stDesc.FrontFace = ffdsoDesc;
+		stDesc.BackFace = bfdsoDesc;
+
+		D3D12_RASTERIZER_DESC rasDesc = {};
+		rasDesc.FillMode = D3D12_FILL_MODE_SOLID;
+		rasDesc.CullMode = D3D12_CULL_MODE_BACK;
+		rasDesc.FrontCounterClockwise = false;
+		rasDesc.DepthBias = 0;
+		rasDesc.DepthBiasClamp = 0.0f;
+		rasDesc.SlopeScaledDepthBias = 0.0f;
+		rasDesc.DepthClipEnable = false;
+		rasDesc.MultisampleEnable = false;
+		rasDesc.AntialiasedLineEnable = false;
+		rasDesc.ForcedSampleCount = 0;
+		rasDesc.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+
+		D3D12_GRAPHICS_PIPELINE_STATE_DESC cgp = {};
+		cgp.NodeMask = 0;
+		cgp.InputLayout = ild;
+		cgp.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+		cgp.pRootSignature = root;
+		cgp.PS = psC;
+		cgp.VS = vsC;
+		cgp.BlendState = blDesc;
+		cgp.DepthStencilState = stDesc;
+		cgp.RasterizerState = rasDesc;
+		cgp.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+		cgp.NumRenderTargets = 1;
+		cgp.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+		cgp.SampleDesc.Count = 1;
+		cgp.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		cgp.SampleMask = UINT_MAX;
+
+		this->device->CreateGraphicsPipelineState(&cgp, __uuidof(ID3D12PipelineState), (void**)&pipeline) == S_OK ? "" : throw "Failed To Create Pipeline";
+
+		vsBlob->Release();
+		psBlob->Release();
+
+		textGModule = new GraphicsModule2D(pipeline, root);
+		textGModule->indexed = true;
+		textGModule->iaPosition = 0;
+		textGModule->iaTexCoords = 1;
+		textGModule->topology = D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	}
 
 	void DrawPage()
 	{
-		commandList->SetPipelineState(this->dData->model->graphicsModule->pipeline);
-		commandList->SetGraphicsRootSignature(this->dData->model->graphicsModule->rootSignature);
+		commandList->SetPipelineState(this->dData->htmlModel->graphicsModule->pipeline);
+		commandList->SetGraphicsRootSignature(this->dData->htmlModel->graphicsModule->rootSignature);
 		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		dData->tempSettings.renderWidth = this->width;
 		dData->tempSettings.renderHeight = this->height;
 		DrawHTML(current, device, commandList, dData);
+
+		commandList->SetPipelineState(this->textGModule->pipeline);
+		commandList->SetGraphicsRootSignature(this->textGModule->rootSignature);
+		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		BLIB::KeyPointerPair* img = BLIB::KeyPointerPair::GetKeyValuePointer(dData->modelTextures, textTextureLocation);
+		ImageStorage* imgS = (ImageStorage*)img->pointer;
+		TextSettings s;
+		s.renderWidth = this->width;
+		s.renderHeight = this->height;
+		s.font = 1;
+		s.fontsize = 12;
+		s.character = 2;
+		s.percShiftX = 0;
+		s.percShiftY = 0;
+		s.scaleX = 11.0f / imgS->width;
+		s.scaleY = 11.0f / imgS->height;
+		s.x = 0;
+		s.y = 0;
+		D3D12_GPU_DESCRIPTOR_HANDLE hnd = dData->textureHeap->GetGPUDescriptorHandleForHeapStart();
+		hnd.ptr += textureHeapIncrementSize * imgS->index;
+		this->dData->textModel->Draw(device, commandList, textSettingSize, &s, &hnd);
 	}
 
 	void DrawHTML(BLIB::HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData)
@@ -853,35 +1705,19 @@ public:
 			char* location = element->imageLocation;
 			BLIB::KeyPointerPair* img = BLIB::KeyPointerPair::GetKeyValuePointer(dData->modelTextures, location);
 
-			int size = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-			if (img != NULL)
+			if (img == NULL)
 			{
-				ImageStorage* imgS = (ImageStorage*)img->pointer;
-				D3D12_GPU_DESCRIPTOR_HANDLE hnd = dData->textureHeap->GetGPUDescriptorHandleForHeapStart();
-				hnd.ptr += size * imgS->index;
-				dData->model->Draw(device, cL, &dData->tempSettings, &hnd);
+				AddTexture(device, cL, location);
+				img = BLIB::KeyPointerPair::GetKeyValuePointer(dData->modelTextures, location);
 			}
-			else
-			{
-				ID3D12Resource* tempHndl = NULL;
-				ImageStorage* f = new ImageStorage();
-				f->index = dData->textureHeapCount;
 
-				D3D12_GPU_DESCRIPTOR_HANDLE hnd = dData->textureHeap->GetGPUDescriptorHandleForHeapStart();
-				hnd.ptr += size * f->index;
-
-				SetupTextureBuffers(device, cL, location, &f->upload, &f->resource, dData->textureHeap, f->index);
-
-				dData->textureHeapCount++;
-
-				BLIB::KeyPointerPair* nKpp = new BLIB::KeyPointerPair(location, f);
-				dData->modelTextures->AddPointer(nKpp);
-				dData->model->Draw(device, cL, &dData->tempSettings, &hnd);
-			}
+			ImageStorage* imgS = (ImageStorage*)img->pointer;
+			D3D12_GPU_DESCRIPTOR_HANDLE hnd = dData->textureHeap->GetGPUDescriptorHandleForHeapStart();
+			hnd.ptr += textureHeapIncrementSize * imgS->index;
+			dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, &hnd);
 		}
 		else
-			dData->model->Draw(device, cL, &dData->tempSettings, NULL);
+			dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, NULL);
 
 		for (int i = 0; i < element->children.size(); i++)
 		{
@@ -896,6 +1732,26 @@ public:
 		AddPage(mainpage);
 		BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)root->items[0];
 		this->current = (BLIB::HTMLElement*)kpp->pointer;
+	}
+
+	void AddTexture(ID3D12Device10* device, ID3D12GraphicsCommandList* cL, const char* location)
+	{
+		ID3D12Resource* tempHndl = NULL;
+		ImageStorage* f = new ImageStorage();
+		f->index = dData->textureHeapCount;
+
+		int width;
+		int height;
+
+		SetupTextureBuffers(device, cL, location, &f->upload, &f->resource, dData->textureHeap, f->index, &width, &height);
+
+		f->width = width;
+		f->height = height;
+
+		dData->textureHeapCount++;
+
+		BLIB::KeyPointerPair* nKpp = new BLIB::KeyPointerPair((char*)location, f);
+		dData->modelTextures->AddPointer(nKpp);
 	}
 
 	void AddPage(char* path)
@@ -987,9 +1843,11 @@ public:
 
 	~BGraph()
 	{
-		delete gModule;
+		delete htmlGModule;
+		delete textGModule;
 		dData->textureHeap->Release();
-		delete dData->model;
+		delete dData->htmlModel;
+		delete dData->textModel;
 
 		for (int i = 0; i < dData->modelTextures->count; i++)
 		{
