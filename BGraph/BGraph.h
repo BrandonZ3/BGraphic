@@ -145,7 +145,7 @@ public:
 	float y;
 };
 
-class FlatImageStorage
+class ImageStorage
 {
 public:
 	int index = -1;
@@ -178,6 +178,11 @@ public:
 	{
 		this->topology = topo;
 	}
+	~GraphicsModule2D()
+	{
+		pipeline->Release();
+		rootSignature->Release();
+	}
 };
 
 class GraphicsModel
@@ -185,7 +190,7 @@ class GraphicsModel
 private:
 	GraphicsModel(GraphicsModel&) = delete;
 public:
-	GraphicsModule2D* graphicsModule;
+	GraphicsModule2D* graphicsModule; // Dont free
 
 	ID3D12Resource* posU = NULL;
 	ID3D12Resource* posR = NULL;
@@ -195,8 +200,8 @@ public:
 	D3D12_VERTEX_BUFFER_VIEW Positions;
 	D3D12_VERTEX_BUFFER_VIEW TexCoords;
 
-	ID3D12Resource* indR;
-	ID3D12Resource* indU;
+	ID3D12Resource* indR = NULL;
+	ID3D12Resource* indU = NULL;
 	D3D12_INDEX_BUFFER_VIEW Indices;
 	uint64_t indexCount;
 
@@ -257,16 +262,6 @@ public:
 			SetupIndexBuffer(device, commandList, (char*)indices, indiceByteLength, &indU, &indR, &Indices, sizeof(uint32_t));
 		}
 		free(indices);
-	}
-
-	void ReleaseTemporaryBuffers()
-	{
-		if (this->graphicsModule->indexed)
-			indU->Release();
-		if (posU != NULL)
-			posU->Release();
-		if (texU != NULL)
-			texU->Release();
 	}
 
 	void SetupVertexBuffer(ID3D12Device10* device, ID3D12GraphicsCommandList* commandList, char* refdata, UINT byteLength, ID3D12Resource** upload, ID3D12Resource** gpuBuffer, D3D12_VERTEX_BUFFER_VIEW* view, uint64_t dataInstanceSize)
@@ -438,15 +433,36 @@ public:
 		cL->SetGraphicsRoot32BitConstants(0, (sizeof(DrawSettings) / 4), settings, 0);
 		cL->DrawIndexedInstanced(indexCount, 1, 0, 0, 0);
 	}
+
+	void ReleaseTemporaryBuffers()
+	{
+		if (indU != NULL)
+			indU->Release();
+		if (posU != NULL)
+			posU->Release();
+		if (texU != NULL)
+			texU->Release();
+	}
+
+	~GraphicsModel()
+	{
+		if (posR != NULL)
+			posR->Release();
+		if (texR != NULL)
+			texR->Release();
+		if (indR != NULL)
+			indR->Release();
+		ReleaseTemporaryBuffers();
+	}
 };
 
 class DrawingData
 {
 public:
-	GraphicsModel* flat;
-	std::map<char*, FlatImageStorage> flatModelTextures;
-	ID3D12DescriptorHeap* flatTextureHeap;
-	int flatTextureHeapCount = 0;
+	GraphicsModel* model;
+	BLIB::PointerList* modelTextures = new BLIB::PointerList();
+	ID3D12DescriptorHeap* textureHeap;
+	int textureHeapCount = 0;
 	DrawSettings tempSettings;
 };
 
@@ -469,11 +485,6 @@ class BGraph
 
 	int height;
 	int width;
-
-	void HandleClick(BLIB::HTMLElement* element, char* page)
-	{
-
-	}
 
 	void bgNavigate(const char* pageName)
 	{
@@ -531,9 +542,9 @@ public:
 		dhDesc.NumDescriptors = 1000;
 		dhDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 
-		device->CreateDescriptorHeap(&dhDesc, __uuidof(ID3D12DescriptorHeap), (void**)&(dData->flatTextureHeap)) == S_OK ? "" : throw "Broken";
+		device->CreateDescriptorHeap(&dhDesc, __uuidof(ID3D12DescriptorHeap), (void**)&(dData->textureHeap)) == S_OK ? "" : throw "Broken";
 
-		dData->flat = new GraphicsModel(device, commandList, gModule);
+		dData->model = new GraphicsModel(device, commandList, gModule);
 	}
 
 	void HandleClick(int x, int y)
@@ -637,6 +648,10 @@ public:
 		D3D12SerializeRootSignature(&charRDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &blob, &error) == S_OK ? "" : throw "";
 		this->device->CreateRootSignature(0, blob->GetBufferPointer(), blob->GetBufferSize(), __uuidof(ID3D12RootSignature), (void**)&root) == S_OK ? "" : throw "Failed To Create RootSig";
 
+		blob->Release();
+		if(error != NULL)
+			error->Release();
+
 		ID3DBlob* vsBlob = NULL;
 		ID3DBlob* vserror = NULL;
 		ID3DBlob* psBlob = NULL;
@@ -649,6 +664,7 @@ public:
 			char* vscerr = (char*)vserror->GetBufferPointer();
 			OutputDebugStringA(vscerr);
 			OutputDebugStringA("\r\nPS:");
+			vserror->Release();
 		}
 
 		D3DCompileFromFile(L"C:\\Users\\brand\\source\\repos\\Graphics Again\\Graphics Again\\2dshader.hlsl", NULL, NULL, "PSMain", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, NULL, &psBlob, &pserror) == S_OK ? "" : throw "Failed To Compile Vertex Shader!";
@@ -657,6 +673,7 @@ public:
 		{
 			char* pscerr = (char*)pserror->GetBufferPointer();
 			OutputDebugStringA(pscerr);
+			pserror->Release();
 		}
 
 		D3D12_INPUT_ELEMENT_DESC iel[2];
@@ -760,6 +777,9 @@ public:
 
 		this->device->CreateGraphicsPipelineState(&cgp, __uuidof(ID3D12PipelineState), (void**)&pipeline) == S_OK ? "" : throw "Failed To Create Pipeline";
 
+		vsBlob->Release();
+		psBlob->Release();
+
 		gModule = new GraphicsModule2D(pipeline, root);
 		gModule->indexed = true;
 		gModule->iaPosition = 0;
@@ -769,8 +789,8 @@ public:
 
 	void DrawPage()
 	{
-		commandList->SetPipelineState(this->dData->flat->graphicsModule->pipeline);
-		commandList->SetGraphicsRootSignature(this->dData->flat->graphicsModule->rootSignature);
+		commandList->SetPipelineState(this->dData->model->graphicsModule->pipeline);
+		commandList->SetGraphicsRootSignature(this->dData->model->graphicsModule->rootSignature);
 		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		dData->tempSettings.renderWidth = this->width;
 		dData->tempSettings.renderHeight = this->height;
@@ -831,33 +851,37 @@ public:
 		{
 			dData->tempSettings.bools = 1;
 			char* location = element->imageLocation;
-			FlatImageStorage imgS = dData->flatModelTextures[location];
+			BLIB::KeyPointerPair* img = BLIB::KeyPointerPair::GetKeyValuePointer(dData->modelTextures, location);
 
 			int size = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-			if (imgS.index != -1)
+			if (img != NULL)
 			{
-				D3D12_GPU_DESCRIPTOR_HANDLE hnd = dData->flatTextureHeap->GetGPUDescriptorHandleForHeapStart();
-				hnd.ptr += size * imgS.index;
-				dData->flat->Draw(device, cL, &dData->tempSettings, &hnd);
+				ImageStorage* imgS = (ImageStorage*)img->pointer;
+				D3D12_GPU_DESCRIPTOR_HANDLE hnd = dData->textureHeap->GetGPUDescriptorHandleForHeapStart();
+				hnd.ptr += size * imgS->index;
+				dData->model->Draw(device, cL, &dData->tempSettings, &hnd);
 			}
 			else
 			{
 				ID3D12Resource* tempHndl = NULL;
-				FlatImageStorage f = { dData->flatTextureHeapCount, };
-				D3D12_GPU_DESCRIPTOR_HANDLE hnd = dData->flatTextureHeap->GetGPUDescriptorHandleForHeapStart();
-				hnd.ptr += size * f.index;
+				ImageStorage* f = new ImageStorage();
+				f->index = dData->textureHeapCount;
 
-				SetupTextureBuffers(device, cL, location, &f.upload, &f.resource, dData->flatTextureHeap, f.index);
+				D3D12_GPU_DESCRIPTOR_HANDLE hnd = dData->textureHeap->GetGPUDescriptorHandleForHeapStart();
+				hnd.ptr += size * f->index;
 
-				dData->flatTextureHeapCount++;
-				dData->flatModelTextures[location] = f;
+				SetupTextureBuffers(device, cL, location, &f->upload, &f->resource, dData->textureHeap, f->index);
 
-				dData->flat->Draw(device, cL, &dData->tempSettings, &hnd);
+				dData->textureHeapCount++;
+
+				BLIB::KeyPointerPair* nKpp = new BLIB::KeyPointerPair(location, f);
+				dData->modelTextures->AddPointer(nKpp);
+				dData->model->Draw(device, cL, &dData->tempSettings, &hnd);
 			}
 		}
 		else
-			dData->flat->Draw(device, cL, &dData->tempSettings, NULL);
+			dData->model->Draw(device, cL, &dData->tempSettings, NULL);
 
 		for (int i = 0; i < element->children.size(); i++)
 		{
@@ -963,6 +987,24 @@ public:
 
 	~BGraph()
 	{
+		delete gModule;
+		dData->textureHeap->Release();
+		delete dData->model;
+
+		for (int i = 0; i < dData->modelTextures->count; i++)
+		{
+			BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)dData->modelTextures->items[i];
+			//Not Deleting the key because HTMLElement does that
+			ImageStorage* img = (ImageStorage*)kpp->pointer;
+			img->resource->Release();
+			img->upload->Release();
+			delete img;
+		}
+		dData->modelTextures->FreeEverything();
+		delete dData->modelTextures;
+
+		delete dData;
+
 		for (int i = 0; i < files.size(); i++)
 		{
 			delete files.at(i);
@@ -980,19 +1022,22 @@ public:
 		{
 			BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)functions->items[i];
 			free(kpp->key);
+			// Not Freeing the function pointers.
 		}
 		for (int i = 0; i < pages->count; i++)
 		{
-			BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)functions->items[i];
+			BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)pages->items[i];
 			free(kpp->key);
-			free(kpp->pointer);
+			free(kpp->pointer); // this is a char* so deconstructor not needed
 		}
 		for (int i = 0; i < variables->count; i++)
 		{
-			BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)functions->items[i];
+			BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)variables->items[i];
 			free(kpp->key);
-			free(kpp->pointer);
+			free(kpp->pointer); // this is a char* so deconstructor not needed
 		}
+
+		delete root;
 
 		functions->FreeEverything();
 		pages->FreeEverything();
