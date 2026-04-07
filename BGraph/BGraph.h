@@ -52,6 +52,14 @@ cbuffer Matrices : register(b0)
     int bTb;
     float x;
     float y;
+
+    int font;
+    int character;
+    int fontsize;
+    int percShiftX;
+    int percShiftY;
+	float scaleXt;
+	float scaleYt;
 }
 
 Texture2D image : register(t0);
@@ -65,26 +73,46 @@ struct PSInput
 
 PSInput VSMain(float2 position : POSITION, float2 texcoords: TEXCOORD)
 {
+	PSInput result;
+	bool drawText = ((bools & 0x2) >> 1) == 0x1;
+
+    if(drawText)
+	{
+		
+		float scaleX = fontsize / (float)renderWidth;
+		float scaleY = fontsize / (float)renderHeight;
+
+		position.x *= scaleX;
+		position.x -= 1;
+		position.x += scaleX;
+		position.x += (x / renderWidth) * 2;
+
+		position.y *= scaleY;
+		position.y += 1;
+		position.y -= scaleY;
+		position.y -= (y / renderHeight) * 2;
     
-    PSInput result;
+		result.position = float4(position, 0.0, 1.0);
+		result.texcoords = texcoords;
+	}
+	else
+	{    
+		float percW = (width / (float) renderWidth);
+		float percH = (height / (float) renderHeight);
     
-    float percW = (width / (float) renderWidth);
-    float percH = (height / (float) renderHeight);
+		float baseShiftX = (((float) renderWidth / 2) / (float) renderWidth) * -2; //moving the box to x == 0 or L
+		float baseShiftY = (((float) renderHeight / 2) / (float) renderHeight) * 2; //moving the box to y == 0 or T
     
-    float baseShiftX = (((float) renderWidth / 2) / (float) renderWidth) * -2; //moving the box to x == 0 or L
-    float baseShiftY = (((float) renderHeight / 2) / (float) renderHeight) * 2; //moving the box to y == 0 or T
+		float shiftPosX = x / (float) renderWidth;          //Use this to move to appropriate X
+		float shiftPosY = (y / (float) renderHeight) * -1;  //Use this to move to appropriate Y
     
-    float shiftPosX = x / (float) renderWidth;          //Use this to move to appropriate X
-    float shiftPosY = (y / (float) renderHeight) * -1;  //Use this to move to appropriate Y
-    
-    float xScaledAndShifted = ((position.x * percW) + percW) + baseShiftX + (shiftPosX * 2);
-    float yScaledAndShifted = ((position.y * percH) - percH) + baseShiftY + (shiftPosY * 2);
-    
-    //
-    
-    result.position = float4(float3(float2( xScaledAndShifted, yScaledAndShifted), 0), 1.0f);
-    result.texcoords = texcoords;
-    return result;
+		float xScaledAndShifted = ((position.x * percW) + percW) + baseShiftX + (shiftPosX * 2);
+		float yScaledAndShifted = ((position.y * percH) - percH) + baseShiftY + (shiftPosY * 2);
+
+		result.position = float4(float3(float2( xScaledAndShifted, yScaledAndShifted), 0), 1.0f);
+		result.texcoords = texcoords;
+	}
+	return result;
 }
 
 
@@ -137,6 +165,14 @@ cbuffer Matrices : register(b0)
     int bTb;
     float x;
     float y;
+
+    int font;
+    int character;
+    int fontsize;
+    int percShiftX;
+    int percShiftY;
+	float scaleXt;
+	float scaleYt;
 }
 
 Texture2D image : register(t0);
@@ -152,8 +188,9 @@ struct PSInput
 float4 PSMain(PSInput input) : SV_TARGET
 {
     bool drawImage = (bools & 0x1) == 0x1;
+	bool drawText = ((bools & 0x2) >> 1) == 0x1;
     
-    if(!drawImage)
+    if(!drawImage && !drawText)
     {
         float ypos = y; //- (actualHeight / 2);
         float xpos = x; // - (actualWidth / 2);
@@ -165,10 +202,6 @@ float4 PSMain(PSInput input) : SV_TARGET
         float4 bordercolorright = float4(brr, brg, brb, bra);
         float4 bordercolorbottom = float4(bbr, bbg, bbb, bba);
         float4 backgroundcolor = float4(bGr, bGg, bGb, bGa);
-    
-    
-    
-        //float borderThickness = 100;
     
     
         if (brTL > 0)
@@ -299,6 +332,9 @@ float4 PSMain(PSInput input) : SV_TARGET
                     discard;
             }
         }
+)";
+
+const char* htmlPixelShaderPT2 = R"(
     
         if (brBR > 0 && (brBR > bTr || brBL > bTb) && input.position.x > xpos + (width / 2) && input.position.y > ypos + (height / 2))
         {
@@ -525,92 +561,23 @@ float4 PSMain(PSInput input) : SV_TARGET
     
         return float4(bGr, bGg, bGb, bGa);
     }
-    else
+    else if(drawText)
     {
+		input.texcoords *= float2(scaleXt, scaleYt);
+		input.texcoords.x += scaleXt * character;
+		input.texcoords.y += scaleYt * font;
+		float4 result = image.Sample(sampler1, input.texcoords);
+		return result;
+    }
+	else
+	{
         float4 textureValue = image.Sample(sampler1, input.texcoords);
         return textureValue;
-    }
+	}
     return float4(0, 0, 0, 1);
 }
 
 
-)";
-
-const char* textVectorShader = R"(
-cbuffer Positioning : register(b0)
-{
-    int renderWidth;
-    int renderHeight;
-    int font;
-    int character;
-    int fontsize;
-    int percShiftX;
-    int percShiftY;
-	float scaleX;
-	float scaleY;
-    int x;
-    int y;
-}
-
-Texture2D image : register(t0);
-SamplerState sampler1 : register(s0);
-
-struct PSInput
-{
-    float4 position : SV_POSITION;
-    float2 color : TEXCOORD;
-};
-
-PSInput VSMain(float2 position : POSITION, float2 texcoord : TEXCOORD)
-{
-    PSInput ps;
-    
-	float scale = 1/1100.0f;
-
-	position *= float2(scale * fontsize, scale * fontsize);
-    //position -= float2(0.5f, -0.5f);
-    //position += float2(percShiftX, -percShiftY);
-    
-    ps.position = float4(position, 0.0, 1.0);
-    ps.color = texcoord;
-
-    return ps;
-}
-)";
-
-const char* textPixelShader = R"(
-cbuffer Positioning : register(b0)
-{
-    int renderWidth;
-    int renderHeight;
-    int font;
-    int character;
-    int fontsize;
-    int percShiftX;
-    int percShiftY;
-	float scaleX;
-	float scaleY;
-    int x;
-    int y;
-}
-
-Texture2D image : register(t0);
-SamplerState sampler1 : register(s0);
-
-struct PSInput
-{
-    float4 position : SV_POSITION;
-    float2 color : TEXCOORD;
-};
-
-float4 PSMain(PSInput input) : SV_TARGET
-{
-	input.color *= float2(scaleX, scaleY);
-	input.color.x += scaleX * character;
-	input.color.y += scaleY * font;
-    float4 result = image.Sample(sampler1, input.color);
-    return result;
-}
 )";
 
 void SetupTextureBuffers(ID3D12Device10* device, ID3D12GraphicsCommandList* commandList, const char* file, ID3D12Resource** upload, ID3D12Resource** gpuBuffer, ID3D12DescriptorHeap* cbvsrvuavHeap, int cbvsrvuavIndex, int* pwidth, int* pheight)
@@ -750,6 +717,14 @@ public:
 	int borderThickness[4];
 	float x;
 	float y;
+	//text
+	int font;
+	int character;
+	int fontsize;
+	int percShiftX;
+	int percShiftY;
+	float scaleX;
+	float scaleY;
 };
 
 class TextSettings
@@ -1085,7 +1060,6 @@ class DrawingData
 {
 public:
 	GraphicsModel* htmlModel;
-	GraphicsModel* textModel;
 	BLIB::PointerList* modelTextures = new BLIB::PointerList();
 	ID3D12DescriptorHeap* textureHeap;
 	int textureHeapCount = 0;
@@ -1113,7 +1087,6 @@ class BGraph
 	ID3D12Device10* device = NULL;
 	ID3D12GraphicsCommandList* commandList = NULL;
 	GraphicsModule2D* htmlGModule = NULL;
-	GraphicsModule2D* textGModule = NULL;
 
 	int height;
 	int width;
@@ -1167,7 +1140,6 @@ public:
 		this->device = device;
 		this->commandList = commandList;
 		CreateHTMLPipeline();
-		CreateTextPipeline();
 
 		D3D12_DESCRIPTOR_HEAP_DESC dhDesc = {};
 		dhDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
@@ -1178,7 +1150,6 @@ public:
 		device->CreateDescriptorHeap(&dhDesc, __uuidof(ID3D12DescriptorHeap), (void**)&(dData->textureHeap)) == S_OK ? "" : throw "Broken";
 
 		dData->htmlModel = new GraphicsModel(device, commandList, htmlGModule);
-		dData->textModel = new GraphicsModel(device, commandList, textGModule);
 
 		textureHeapIncrementSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		AddTexture(device, commandList, textTextureLocation);
@@ -1304,7 +1275,11 @@ public:
 			vserror->Release();
 		}
 
-		D3DCompile(htmlPixelShader, BLIB::Strings::Length(htmlPixelShader), NULL, NULL, NULL, "PSMain", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, NULL, &psBlob, &pserror);
+		char* fullShader = BLIB::Strings::Concat(htmlPixelShader, htmlPixelShaderPT2);
+
+		D3DCompile(fullShader, BLIB::Strings::Length(fullShader), NULL, NULL, NULL, "PSMain", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, NULL, &psBlob, &pserror);
+
+		free(fullShader);
 
 		if (pserror != NULL)
 		{
@@ -1424,200 +1399,6 @@ public:
 		htmlGModule->topology = D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	}
 
-	void CreateTextPipeline()
-	{
-		ID3D12PipelineState* pipeline = NULL;
-		ID3D12RootSignature* root = NULL;
-
-		D3D12_ROOT_CONSTANTS matrices = {};
-		matrices.Num32BitValues = textSettingSize;
-		matrices.RegisterSpace = 0;
-		matrices.ShaderRegister = 0;
-
-		D3D12_ROOT_PARAMETER params[2] = {};
-		params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-		params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-		params[0].Constants = matrices;
-
-		D3D12_DESCRIPTOR_RANGE range = {};
-		range.BaseShaderRegister = 0;
-		range.NumDescriptors = 1;
-		range.OffsetInDescriptorsFromTableStart = 0;
-		range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-		range.RegisterSpace = 0;
-
-		D3D12_ROOT_DESCRIPTOR_TABLE tbl = {};
-		tbl.NumDescriptorRanges = 1;
-		tbl.pDescriptorRanges = &range;
-
-		params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-		params[1].DescriptorTable = tbl;
-		params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-
-		D3D12_STATIC_SAMPLER_DESC ssDesc = {};
-		ssDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
-		ssDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-		ssDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-		ssDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-		ssDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-		ssDesc.MaxAnisotropy = 16;
-		ssDesc.MaxLOD = D3D12_FLOAT32_MAX;
-		ssDesc.MinLOD = 0;
-		ssDesc.MipLODBias = 0;
-		ssDesc.BorderColor = D3D12_STATIC_BORDER_COLOR::D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
-
-		D3D12_ROOT_SIGNATURE_DESC charRDesc = {};
-		charRDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-		charRDesc.NumParameters = 2;
-		charRDesc.pParameters = params;
-		charRDesc.NumStaticSamplers = 1;
-		charRDesc.pStaticSamplers = &ssDesc;
-
-		ID3DBlob* blob = NULL;
-		ID3DBlob* error = NULL;
-
-		D3D12SerializeRootSignature(&charRDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &blob, &error) == S_OK ? "" : throw "";
-		this->device->CreateRootSignature(0, blob->GetBufferPointer(), blob->GetBufferSize(), __uuidof(ID3D12RootSignature), (void**)&root) == S_OK ? "" : throw "Failed To Create RootSig";
-
-		blob->Release();
-		if (error != NULL)
-			error->Release();
-
-		ID3DBlob* vsBlob = NULL;
-		ID3DBlob* vserror = NULL;
-		ID3DBlob* psBlob = NULL;
-		ID3DBlob* pserror = NULL;
-
-		D3DCompile(textVectorShader, BLIB::Strings::Length(textVectorShader), NULL, NULL, NULL, "VSMain", "vs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, NULL, &vsBlob, &vserror);
-
-		if (vserror != NULL)
-		{
-			char* vscerr = (char*)vserror->GetBufferPointer();
-			OutputDebugStringA(vscerr);
-			OutputDebugStringA("\r\nPS:");
-			vserror->Release();
-		}
-
-		D3DCompile(textPixelShader, BLIB::Strings::Length(textPixelShader), NULL, NULL, NULL, "PSMain", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, NULL, &psBlob, &pserror);
-
-		if (pserror != NULL)
-		{
-			char* pscerr = (char*)pserror->GetBufferPointer();
-			OutputDebugStringA(pscerr);
-			pserror->Release();
-		}
-
-		D3D12_INPUT_ELEMENT_DESC iel[2];
-		iel[0].AlignedByteOffset = 0;
-		iel[0].Format = DXGI_FORMAT_R32G32_FLOAT;
-		iel[0].InputSlot = 0;
-		iel[0].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
-		iel[0].InstanceDataStepRate = 0;
-		iel[0].SemanticIndex = 0;
-		iel[0].SemanticName = "POSITION";
-
-		iel[1].AlignedByteOffset = 0;
-		iel[1].Format = DXGI_FORMAT_R32G32_FLOAT;
-		iel[1].InputSlot = 1;
-		iel[1].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
-		iel[1].InstanceDataStepRate = 0;
-		iel[1].SemanticIndex = 0;
-		iel[1].SemanticName = "TEXCOORD";
-
-		D3D12_INPUT_LAYOUT_DESC ild;
-		ild.NumElements = 2;
-		ild.pInputElementDescs = iel;
-
-		D3D12_SHADER_BYTECODE vsC = {};
-		vsC.BytecodeLength = vsBlob->GetBufferSize();
-		vsC.pShaderBytecode = vsBlob->GetBufferPointer();
-
-		D3D12_SHADER_BYTECODE psC = {};
-		psC.BytecodeLength = psBlob->GetBufferSize();
-		psC.pShaderBytecode = psBlob->GetBufferPointer();
-
-		D3D12_RENDER_TARGET_BLEND_DESC rtBlend = {};
-		rtBlend.BlendEnable = true;
-		rtBlend.LogicOpEnable = false;
-		rtBlend.SrcBlend = D3D12_BLEND_SRC_ALPHA;
-		rtBlend.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
-		rtBlend.BlendOp = D3D12_BLEND_OP_ADD;
-		rtBlend.SrcBlendAlpha = D3D12_BLEND_ONE;
-		rtBlend.DestBlendAlpha = D3D12_BLEND_ZERO;
-		rtBlend.BlendOpAlpha = D3D12_BLEND_OP_ADD;
-		rtBlend.LogicOp = D3D12_LOGIC_OP_NOOP;
-		rtBlend.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-
-		D3D12_BLEND_DESC blDesc = {};
-		blDesc.AlphaToCoverageEnable = false;
-		blDesc.IndependentBlendEnable = false;
-		blDesc.RenderTarget[0] = rtBlend;
-
-		D3D12_DEPTH_STENCILOP_DESC bfdsoDesc = {};
-		bfdsoDesc.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
-		bfdsoDesc.StencilFailOp = D3D12_STENCIL_OP_KEEP;
-		bfdsoDesc.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
-		bfdsoDesc.StencilPassOp = D3D12_STENCIL_OP_KEEP;
-
-		D3D12_DEPTH_STENCILOP_DESC ffdsoDesc = {};
-		ffdsoDesc.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
-		ffdsoDesc.StencilFailOp = D3D12_STENCIL_OP_KEEP;
-		ffdsoDesc.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
-		ffdsoDesc.StencilPassOp = D3D12_STENCIL_OP_KEEP;
-
-		D3D12_DEPTH_STENCIL_DESC stDesc;
-		stDesc.DepthEnable = false;
-		stDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
-		stDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-		stDesc.StencilEnable = false;
-		stDesc.StencilReadMask = 0xFF;
-		stDesc.StencilWriteMask = 0xFF;
-		stDesc.FrontFace = ffdsoDesc;
-		stDesc.BackFace = bfdsoDesc;
-
-		D3D12_RASTERIZER_DESC rasDesc = {};
-		rasDesc.FillMode = D3D12_FILL_MODE_SOLID;
-		rasDesc.CullMode = D3D12_CULL_MODE_BACK;
-		rasDesc.FrontCounterClockwise = false;
-		rasDesc.DepthBias = 0;
-		rasDesc.DepthBiasClamp = 0.0f;
-		rasDesc.SlopeScaledDepthBias = 0.0f;
-		rasDesc.DepthClipEnable = false;
-		rasDesc.MultisampleEnable = false;
-		rasDesc.AntialiasedLineEnable = false;
-		rasDesc.ForcedSampleCount = 0;
-		rasDesc.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
-
-		D3D12_GRAPHICS_PIPELINE_STATE_DESC cgp = {};
-		cgp.NodeMask = 0;
-		cgp.InputLayout = ild;
-		cgp.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
-		cgp.pRootSignature = root;
-		cgp.PS = psC;
-		cgp.VS = vsC;
-		cgp.BlendState = blDesc;
-		cgp.DepthStencilState = stDesc;
-		cgp.RasterizerState = rasDesc;
-		cgp.DSVFormat = DXGI_FORMAT_D32_FLOAT;
-		cgp.NumRenderTargets = 1;
-		cgp.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-		cgp.SampleDesc.Count = 1;
-		cgp.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-		cgp.SampleMask = UINT_MAX;
-
-		this->device->CreateGraphicsPipelineState(&cgp, __uuidof(ID3D12PipelineState), (void**)&pipeline) == S_OK ? "" : throw "Failed To Create Pipeline";
-
-		vsBlob->Release();
-		psBlob->Release();
-
-		textGModule = new GraphicsModule2D(pipeline, root);
-		textGModule->indexed = true;
-		textGModule->iaPosition = 0;
-		textGModule->iaTexCoords = 1;
-		textGModule->topology = D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	}
-
 	void DrawPage()
 	{
 		commandList->SetPipelineState(this->dData->htmlModel->graphicsModule->pipeline);
@@ -1626,27 +1407,6 @@ public:
 		dData->tempSettings.renderWidth = this->width;
 		dData->tempSettings.renderHeight = this->height;
 		DrawHTML(current, device, commandList, dData);
-
-		commandList->SetPipelineState(this->textGModule->pipeline);
-		commandList->SetGraphicsRootSignature(this->textGModule->rootSignature);
-		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		BLIB::KeyPointerPair* img = BLIB::KeyPointerPair::GetKeyValuePointer(dData->modelTextures, textTextureLocation);
-		ImageStorage* imgS = (ImageStorage*)img->pointer;
-		TextSettings s;
-		s.renderWidth = this->width;
-		s.renderHeight = this->height;
-		s.font = 1;
-		s.fontsize = 12;
-		s.character = 2;
-		s.percShiftX = 0;
-		s.percShiftY = 0;
-		s.scaleX = 11.0f / imgS->width;
-		s.scaleY = 11.0f / imgS->height;
-		s.x = 0;
-		s.y = 0;
-		D3D12_GPU_DESCRIPTOR_HANDLE hnd = dData->textureHeap->GetGPUDescriptorHandleForHeapStart();
-		hnd.ptr += textureHeapIncrementSize * imgS->index;
-		this->dData->textModel->Draw(device, commandList, textSettingSize, &s, &hnd);
 	}
 
 	void DrawHTML(BLIB::HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData)
@@ -1718,6 +1478,29 @@ public:
 		}
 		else
 			dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, NULL);
+
+		int charsize = element->characters.size();
+		if (charsize > 0)
+		{
+			BLIB::KeyPointerPair* kpp = BLIB::KeyPointerPair::GetKeyValuePointer(dData->modelTextures, textTextureLocation);
+			ImageStorage* imS = (ImageStorage*)kpp->pointer;
+			D3D12_GPU_DESCRIPTOR_HANDLE hnd = dData->textureHeap->GetGPUDescriptorHandleForHeapStart();
+			hnd.ptr += textureHeapIncrementSize * imS->index;
+
+			dData->tempSettings.bools = 2;
+			dData->tempSettings.font = element->font;
+			dData->tempSettings.fontsize = element->fontsize;
+			dData->tempSettings.scaleX = (imS->width / 100.0f) / imS->width;
+			dData->tempSettings.scaleY = (imS->height / 2.0f) / imS->height;
+
+			for (int i = 0; i < charsize; i++)
+			{
+				dData->tempSettings.character = element->characters.at(i).character;
+				dData->tempSettings.x = element->characters.at(i).x;
+				dData->tempSettings.y = element->characters.at(i).y;
+				dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, &hnd);
+			}
+		}
 
 		for (int i = 0; i < element->children.size(); i++)
 		{
@@ -1844,10 +1627,8 @@ public:
 	~BGraph()
 	{
 		delete htmlGModule;
-		delete textGModule;
 		dData->textureHeap->Release();
 		delete dData->htmlModel;
-		delete dData->textModel;
 
 		for (int i = 0; i < dData->modelTextures->count; i++)
 		{
