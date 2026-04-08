@@ -1598,6 +1598,7 @@ public:
 	void ResolvePage(BLIB::HTMLElement* element)
 	{
 		bool dirty = true;
+		int loopcount = 0;
 		while (dirty)
 		{
 #ifdef BGRAPH_DEBUG
@@ -1618,10 +1619,12 @@ public:
 				BLIB::HTMLElement::HTMLCalculateSizesAndPositionsBU(element);
 				BLIB::HTMLElement::HTMLHandleFlexPositioning(element);
 				dirty = BLIB::HTMLElement::HTMLAnyDirty(element);
+				loopcount++;
 #ifdef BGRAPH_DEBUG
 			}
 #endif
 		}
+		int z = 0;
 	}
 
 	~BGraph()
