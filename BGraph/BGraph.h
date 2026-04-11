@@ -572,6 +572,7 @@ const char* htmlPixelShaderPT2 = R"(
 	else
 	{
         float4 textureValue = image.Sample(sampler1, input.texcoords);
+		textureValue.a = bGa;
         return textureValue;
 	}
     return float4(0, 0, 0, 1);
@@ -1105,6 +1106,25 @@ class BGraph
 		BLIB::HTMLParser::ParseStyling(style, element);
 	}
 
+	void bGSet(BLIB::HTMLElement* element, const char* varname, const char* value)
+	{
+		BLIB::KeyPointerPair* var = BLIB::KeyPointerPair::GetKeyValuePointer(variables, varname);
+
+		if (var != NULL)
+		{
+			free(var->pointer);
+			var->pointer = BLIB::Strings::Clone(value);
+		}
+		else
+		{
+			BLIB::KeyPointerPair* newVar = new BLIB::KeyPointerPair(BLIB::Strings::Clone(varname), BLIB::Strings::Clone(value));
+			variables->AddPointer(newVar);
+		}
+
+		BLIB::HTMLParser::ResolveConditionalHTML(current, variables);
+		BLIB::HTMLParser::ResolveHTML(current);
+	}
+
 	bool HandleHTMLHover(BLIB::HTMLElement* element, int x, int y)
 	{
 		for (int i = element->children.size() - 1; i >= 0; i--)
@@ -1172,10 +1192,15 @@ class BGraph
 					bGStyle(element, (char*)clickargs->items[1]);
 				}
 
+				if (clickargs->count == 3 && BLIB::Strings::Compare((char*)clickargs->items[0], "bGSet"))
+				{
+					bGSet(element, (char*)clickargs->items[1], (char*)clickargs->items[2]);
+				}
+
 				clickargs->FreeEverything();
+				return true;
 			}
 
-			return true;
 		}
 		return false;
 	}
@@ -1651,15 +1676,11 @@ public:
 		element->width = width;
 		element->height = height;
 
-		ResolvePage(element);
+		BLIB::HTMLParser::ResolveConditionalHTML(element, variables);
+		BLIB::HTMLParser::ResolveHTML(element);
 
 		BLIB::KeyPointerPair* kpp = new BLIB::KeyPointerPair(name, element);
 		this->root->AddPointer(kpp);
-	}
-
-	void ResolvePage(BLIB::HTMLElement* element)
-	{
-		BLIB::HTMLParser::ResolveHTML(element);
 	}
 
 	~BGraph()
