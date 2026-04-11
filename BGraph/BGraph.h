@@ -1091,13 +1091,58 @@ class BGraph
 	int height;
 	int width;
 
-	void bgNavigate(const char* pageName)
+	void bGNavigate(const char* pageName)
 	{
 		BLIB::KeyPointerPair* value = BLIB::KeyPointerPair::GetKeyValuePointer(root, pageName);
 		if (value != NULL)
 		{
 			current = (BLIB::HTMLElement*)value->pointer;
 		}
+	}
+
+	void bGStyle(BLIB::HTMLElement* element, char* style)
+	{
+		BLIB::HTMLParser::ParseStyling(style, element);
+	}
+
+	bool HandleHTMLHover(BLIB::HTMLElement* element, int x, int y)
+	{
+		for (int i = element->children.size() - 1; i >= 0; i--)
+		{
+			if (HandleHTMLHover(element->children.at(i), x, y))
+				return true;
+		}
+
+		BLIB::KeyPointerPair* value = BLIB::KeyPointerPair::GetKeyValuePointer(element->attributes, "bGHover");
+		if (value != NULL)
+		{
+			if (TestCoordinates(element, x, y))
+			{
+				element->hover = true;
+
+				BLIB::PointerList* clickargs = BLIB::PointerList::SplitString((char*)value->pointer, ";");
+
+				if (clickargs->count == 2 && BLIB::Strings::Compare((char*)clickargs->items[0], "bGStyle"))
+				{
+					bGStyle(element, (char*)clickargs->items[1]);
+				}
+
+				clickargs->FreeEverything();
+			}
+			else
+			{
+				element->hover = false;
+				BLIB::KeyPointerPair* style = BLIB::KeyPointerPair::GetKeyValuePointer(element->attributes, "style");
+
+				if (style != NULL)
+				{
+					bGStyle(element, (char*)style->pointer);
+				}
+				
+			}
+		}
+
+		return element->hover;
 	}
 
 	bool HandleHTMLClick(BLIB::HTMLElement* element, int x, int y)
@@ -1108,12 +1153,8 @@ class BGraph
 				return true;
 		}
 
-		float left = element->x;
-		float top = element->y;
-		float right = element->x + element->actualWidth;
-		float bottom = element->y + element->actualHeight;
 
-		if (x > left && x < right && y > top && y < bottom)
+		if (TestCoordinates(element, x, y))
 		{
 			BLIB::KeyPointerPair* value = BLIB::KeyPointerPair::GetKeyValuePointer(element->attributes, "bGClick");
 			if (value != NULL)
@@ -1123,7 +1164,12 @@ class BGraph
 				if (clickargs->count == 2 && BLIB::Strings::Compare((char*)clickargs->items[0], "bGNavigate"))
 				{
 					///////////////// Need to make sure that bGname is taken out and the name of the file is the pagename.
-					bgNavigate((char*)clickargs->items[1]);
+					bGNavigate((char*)clickargs->items[1]);
+				}
+
+				if (clickargs->count == 2 && BLIB::Strings::Compare((char*)clickargs->items[0], "bGStyle"))
+				{
+					bGStyle(element, (char*)clickargs->items[1]);
 				}
 
 				clickargs->FreeEverything();
@@ -1132,6 +1178,17 @@ class BGraph
 			return true;
 		}
 		return false;
+	}
+
+	bool TestCoordinates(BLIB::HTMLElement* element, int x, int y)
+	{
+
+		float left = element->x;
+		float top = element->y;
+		float right = element->x + element->actualWidth;
+		float bottom = element->y + element->actualHeight;
+
+		return x > left && x < right && y > top && y < bottom;
 	}
 
 public:
@@ -1158,6 +1215,11 @@ public:
 	void HandleClick(int x, int y)
 	{
 		HandleHTMLClick(current, x, y);
+	}
+
+	void HandleHover(int x, int y)
+	{
+		HandleHTMLHover(current, x, y);
 	}
 
 	void FindLinkedPages(BLIB::HTMLElement* element)
@@ -1597,34 +1659,7 @@ public:
 
 	void ResolvePage(BLIB::HTMLElement* element)
 	{
-		bool dirty = true;
-		int loopcount = 0;
-		while (dirty)
-		{
-#ifdef BGRAPH_DEBUG
-			char* string = (char*)malloc(1);
-			if (string != NULL)
-			{
-				string[0] = 0;
-
-				BLIB::HTMLElement::HTMLPrintTree(element, 0, &string);
-
-				BLIB::DBuffer* buf = new BLIB::DBuffer();
-				buf->Add((unsigned char*)string, BLIB::Strings::Length(string));
-				BLIB::Files::WriteFile((char*)"TempTreeJSON.json", buf);
-				delete buf;
-				free(string);
-#endif
-				BLIB::HTMLElement::HTMLCalculateSizesAndPositionsTD(element);
-				BLIB::HTMLElement::HTMLCalculateSizesAndPositionsBU(element);
-				BLIB::HTMLElement::HTMLHandleFlexPositioning(element);
-				dirty = BLIB::HTMLElement::HTMLAnyDirty(element);
-				loopcount++;
-#ifdef BGRAPH_DEBUG
-			}
-#endif
-		}
-		int z = 0;
+		BLIB::HTMLParser::ResolveHTML(element);
 	}
 
 	~BGraph()
