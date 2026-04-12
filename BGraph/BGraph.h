@@ -1122,7 +1122,7 @@ class BGraph
 		}
 
 		BLIB::HTMLParser::ResolveConditionalHTML(current, variables);
-		BLIB::HTMLParser::ResolveHTML(current);
+		BLIB::HTMLParser::ResolveHTML(current, variables);
 	}
 
 	bool HandleHTMLHover(BLIB::HTMLElement* element, int x, int y)
@@ -1677,7 +1677,7 @@ public:
 		element->height = height;
 
 		BLIB::HTMLParser::ResolveConditionalHTML(element, variables);
-		BLIB::HTMLParser::ResolveHTML(element);
+		BLIB::HTMLParser::ResolveHTML(element, variables);
 
 		BLIB::KeyPointerPair* kpp = new BLIB::KeyPointerPair(name, element);
 		this->root->AddPointer(kpp);
