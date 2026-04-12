@@ -1683,6 +1683,22 @@ public:
 		this->root->AddPointer(kpp);
 	}
 
+	void SetVariable(const char* name, const char* json)
+	{
+		BLIB::KeyPointerPair* point = BLIB::KeyPointerPair::GetKeyValuePointer(variables, name);
+
+		if (point != NULL)
+		{
+			free(point->pointer);
+			point->pointer = BLIB::Strings::Clone(json);
+		}
+		else
+		{
+			point = new BLIB::KeyPointerPair(BLIB::Strings::Clone(name), BLIB::Strings::Clone(json));
+			variables->AddPointer(point);
+		}
+	}
+
 	~BGraph()
 	{
 		delete htmlGModule;
