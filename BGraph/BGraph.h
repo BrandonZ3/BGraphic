@@ -1121,8 +1121,7 @@ class BGraph
 			variables->AddPointer(newVar);
 		}
 
-		BLIB::HTMLParser::ResolveConditionalHTML(current, variables);
-		BLIB::HTMLParser::ResolveHTML(current, variables);
+		Refresh();
 	}
 
 	bool HandleHTMLHover(BLIB::HTMLElement* element, int x, int y)
@@ -1167,6 +1166,9 @@ class BGraph
 
 	bool HandleHTMLClick(BLIB::HTMLElement* element, int x, int y)
 	{
+
+		//Have to check if its scroll bar first.
+
 		for (int i = element->children.size() - 1; i >= 0; i--)
 		{
 			if (HandleHTMLClick(element->children.at(i), x, y))
@@ -1486,7 +1488,7 @@ public:
 		htmlGModule->topology = D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	}
 
-	void DrawPage()
+	void DrawPage(D3D12_VIEWPORT* vp, D3D12_RECT* sc)
 	{
 		commandList->SetPipelineState(this->dData->htmlModel->graphicsModule->pipeline);
 		commandList->SetGraphicsRootSignature(this->dData->htmlModel->graphicsModule->rootSignature);
@@ -1589,9 +1591,46 @@ public:
 			}
 		}
 
+		float finalChildX = 0;
+		float finalChildY = 0;
+
 		for (int i = 0; i < element->children.size(); i++)
 		{
-			DrawHTML(element->children.at(i), device, cL, dData);
+			BLIB::HTMLElement* chld = element->children.at(i);
+			DrawHTML(chld, device, cL, dData);
+
+			if (element->overflowHandling == BLIB::HTMLOverflow::AUTO)
+			{
+				float overallX = BLIB::HTMLElement::GetElementOverallWidth(chld) + (chld->x - chld->ml);
+				float overallY = BLIB::HTMLElement::GetElementOverallHeight(chld) + (chld->y - chld->mt);
+				if (finalChildX < overallX)
+					finalChildX = overallX;
+				if (finalChildY < overallY)
+					finalChildY = overallY;
+			}
+
+		}
+
+		if (element->widthScaling != BLIB::HTMLScaling::FIT_CONTENT)
+		{
+			float widthChildren = finalChildX - element->x;
+			if (widthChildren > 0)
+			{
+				element->scrollBarScaleX = BLIB::HTMLElement::GetElementContentWidth(element) / widthChildren;
+				if (element->scrollBarScaleX < 1.0f)
+					DrawHorizontalScrollbar(element, device, cL, dData);
+			}
+		}
+
+		if (element->heightScaling != BLIB::HTMLScaling::FIT_CONTENT)
+		{
+			float heightChildren = finalChildY - element->y;
+			if (heightChildren > 0)
+			{
+				element->scrollBarScaleY = BLIB::HTMLElement::GetElementContentHeight(element) / heightChildren;
+				if (element->scrollBarScaleY < 1.0f)
+					DrawVerticleScrollbar(element, device, cL, dData);
+			}
 		}
 	}
 
@@ -1697,6 +1736,91 @@ public:
 			point = new BLIB::KeyPointerPair(BLIB::Strings::Clone(name), BLIB::Strings::Clone(json));
 			variables->AddPointer(point);
 		}
+	}
+
+	void UpdatePageResolution(int width, int height)
+	{
+		current->width = width;
+		current->height = height;
+	}
+
+	void DrawVerticleScrollbar(BLIB::HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData)
+	{
+		dData->tempSettings.bools = 0;
+		dData->tempSettings.backgroundColor[0] = 0 / 255.0f;
+		dData->tempSettings.backgroundColor[1] = 0 / 255.0f;
+		dData->tempSettings.backgroundColor[2] = 0 / 255.0f;
+		dData->tempSettings.backgroundColor[3] = 128 / 255.0f;
+		dData->tempSettings.width = element->scrollBarThickness;
+		dData->tempSettings.height = element->actualHeight - element->scrollBarThickness;
+		dData->tempSettings.x = (element->x + element->actualWidth) - element->scrollBarThickness;
+		dData->tempSettings.y = element->y;
+		dData->tempSettings.borderRadius[0] = 0;
+		dData->tempSettings.borderRadius[1] = 0;
+		dData->tempSettings.borderRadius[2] = 0;
+		dData->tempSettings.borderRadius[3] = 0;
+		dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, NULL);
+
+		float halfies = element->scrollBarThickness / 2.0f;
+		float spacing = 4;
+
+		dData->tempSettings.bools = 0;
+		dData->tempSettings.backgroundColor[0] = 64 / 255.0f;
+		dData->tempSettings.backgroundColor[1] = 64 / 255.0f;
+		dData->tempSettings.backgroundColor[2] = 64 / 255.0f;
+		dData->tempSettings.backgroundColor[3] = 128 / 255.0f;
+		dData->tempSettings.width = element->scrollBarThickness - spacing;
+		dData->tempSettings.height = ((element->actualHeight - spacing) - element->scrollBarThickness) * element->scrollBarScaleY;
+		dData->tempSettings.x = (element->x + element->actualWidth) - element->scrollBarThickness + (spacing / 2);
+		dData->tempSettings.y = element->y + (spacing / 2) + element->scrollPosY;
+		dData->tempSettings.borderRadius[0] = halfies;
+		dData->tempSettings.borderRadius[1] = halfies;
+		dData->tempSettings.borderRadius[2] = halfies;
+		dData->tempSettings.borderRadius[3] = halfies;
+		dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, NULL);
+	}
+
+	void DrawHorizontalScrollbar(BLIB::HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData)
+	{
+		dData->tempSettings.bools = 0;
+		dData->tempSettings.backgroundColor[0] = 0 / 255.0f;
+		dData->tempSettings.backgroundColor[1] = 0 / 255.0f;
+		dData->tempSettings.backgroundColor[2] = 0 / 255.0f;
+		dData->tempSettings.backgroundColor[3] = 128 / 255.0f;
+		dData->tempSettings.width = element->actualWidth - element->scrollBarThickness;
+		dData->tempSettings.height = element->scrollBarThickness;
+		dData->tempSettings.x = element->x;
+		dData->tempSettings.y = (element->y + element->actualHeight) - element->scrollBarThickness;
+		dData->tempSettings.borderRadius[0] = 0;
+		dData->tempSettings.borderRadius[1] = 0;
+		dData->tempSettings.borderRadius[2] = 0;
+		dData->tempSettings.borderRadius[3] = 0;
+		dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, NULL);
+
+		float halfies = element->scrollBarThickness / 2.0f;
+		float spacing = 4;
+
+		dData->tempSettings.bools = 0;
+		dData->tempSettings.backgroundColor[0] = 64 / 255.0f;
+		dData->tempSettings.backgroundColor[1] = 64 / 255.0f;
+		dData->tempSettings.backgroundColor[2] = 64 / 255.0f;
+		dData->tempSettings.backgroundColor[3] = 128 / 255.0f;
+		dData->tempSettings.width = ((element->actualWidth - spacing) - element->scrollBarThickness) * element->scrollBarScaleX;
+		dData->tempSettings.height = element->scrollBarThickness - spacing;
+		dData->tempSettings.x = element->x + (spacing / 2) + element->scrollPosX;
+		dData->tempSettings.y = (element->y + element->actualHeight) - element->scrollBarThickness + (spacing / 2);
+		dData->tempSettings.borderRadius[0] = halfies;
+		dData->tempSettings.borderRadius[1] = halfies;
+		dData->tempSettings.borderRadius[2] = halfies;
+		dData->tempSettings.borderRadius[3] = halfies;
+		dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, NULL);
+	}
+
+	void Refresh()
+	{
+		BLIB::HTMLElement::HTMLInvalidateAll(current);
+		BLIB::HTMLParser::ResolveConditionalHTML(current, variables);
+		BLIB::HTMLParser::ResolveHTML(current, variables);
 	}
 
 	~BGraph()
