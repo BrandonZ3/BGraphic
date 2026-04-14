@@ -1371,7 +1371,7 @@ public:
 			{
 				diffY = y - active->scrollStartY;
 				active->scrollStartY = y;
-				if (active->scrollPosY + diffY < active->actualHeight - (((active->actualHeight - active->scrollSpacing)) * active->scrollBarScaleX) && active->scrollPosY + diffY >= 0)
+				if (active->scrollPosY + diffY < active->actualHeight - (((active->actualHeight - active->scrollSpacing)) * active->scrollBarScaleY) && active->scrollPosY + diffY >= 0)
 				{
 					active->scrollPosY += diffY;
 					changed = true;
@@ -1381,7 +1381,7 @@ public:
 			}
 
 			for (int i = 0; i < active->children.size(); i++)
-				ApplyScrolling(diffX / active->scrollBarScaleX, diffY / active->scrollBarScaleY, active->children.at(i));
+				ApplyScrolling(diffX * active->scrollBarShiftScaleX, diffY * active->scrollBarShiftScaleY, active->children.at(i));
 
 			return;
 		}
@@ -1391,12 +1391,12 @@ public:
 
 	void ApplyScrolling(float x, float y, BLIB::HTMLElement* element)
 	{
-		/*element->x -= x;
+		element->x -= x;
 		element->y -= y;
 		for (int i = 0; i < element->children.size(); i++)
 		{
 			ApplyScrolling(x, y, element->children.at(i));
-		}*/
+		}
 	}
 
 	void FindLinkedPages(BLIB::HTMLElement* element)
@@ -1645,10 +1645,10 @@ public:
 		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		dData->tempSettings.renderWidth = this->width;
 		dData->tempSettings.renderHeight = this->height;
-		DrawHTML(current, device, commandList, dData);
+		DrawHTML(current, device, commandList, dData, sc);
 	}
 
-	void DrawHTML(BLIB::HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData)
+	void DrawHTML(BLIB::HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData, D3D12_RECT* sc)
 	{
 		dData->tempSettings.bools = 0;
 		dData->tempSettings.backgroundColor[0] = element->bGr / 255.0f;
@@ -1729,7 +1729,7 @@ public:
 			dData->tempSettings.bools = 2;
 			dData->tempSettings.font = element->font;
 			dData->tempSettings.fontsize = element->fontsize;
-			dData->tempSettings.scaleX = (imS->width / 100.0f) / imS->width;
+			dData->tempSettings.scaleX = (imS->width / 100.0f) / imS->width; //this should be fixed, the 100 on this line and 2 on next should be dynamic
 			dData->tempSettings.scaleY = (imS->height / 2.0f) / imS->height;
 
 			for (int i = 0; i < charsize; i++)
@@ -1744,10 +1744,24 @@ public:
 		float finalChildX = 0;
 		float finalChildY = 0;
 
+		float elementScLeft = (element->x + element->bTl);
+		float elementScRight = (element->x + element->actualWidth) - element->bTr;
+		float elementScTop = (element->y + element->bTt);
+		float elementScBottom = (element->y + element->actualHeight) - element->bTb;
+
 		for (int i = 0; i < element->children.size(); i++)
 		{
+			if (element->overflowHandling == BLIB::HTMLOverflow::AUTO || element->overflowHandling == BLIB::HTMLOverflow::HIDDEN)
+			{
+				sc->left = elementScLeft;
+				sc->right = elementScRight;
+				sc->top = elementScTop;
+				sc->bottom = elementScBottom;
+				cL->RSSetScissorRects(1, sc);
+			}
+
 			BLIB::HTMLElement* chld = element->children.at(i);
-			DrawHTML(chld, device, cL, dData);
+			DrawHTML(chld, device, cL, dData, sc);
 
 			if (element->overflowHandling == BLIB::HTMLOverflow::AUTO)
 			{
@@ -1758,29 +1772,49 @@ public:
 				if (finalChildY < overallY)
 					finalChildY = overallY;
 			}
-
 		}
 
-		if (element->widthScaling != BLIB::HTMLScaling::FIT_CONTENT)
+		if (element->widthScaling != BLIB::HTMLScaling::FIT_CONTENT && element->overflowHandling == BLIB::HTMLOverflow::AUTO)
 		{
-			float widthChildren = finalChildX - element->x;
+			float widthChildren = finalChildX - (element->x + element->pl + element->bTl);
 			if (widthChildren > 0)
 			{
-				element->scrollBarScaleX = BLIB::HTMLElement::GetElementContentWidth(element) / widthChildren;
+				if (element->scrollBarScaleXDirty)
+				{
+					float elementWidth = BLIB::HTMLElement::GetElementContentWidth(element);
+					element->scrollBarScaleX = elementWidth / widthChildren;
+					element->scrollBarScaleXDirty = !element->scrollBarScaleXDirty;
+					element->scrollBarShiftScaleX = ((widthChildren + elementWidth) / 2) / (element->actualWidth - (((element->actualWidth - element->scrollSpacing)) * element->scrollBarScaleX));
+				}
 				if (element->scrollBarScaleX < 1.0f)
 					DrawHorizontalScrollbar(element, device, cL, dData);
 			}
 		}
 
-		if (element->heightScaling != BLIB::HTMLScaling::FIT_CONTENT)
+		if (element->heightScaling != BLIB::HTMLScaling::FIT_CONTENT && element->overflowHandling == BLIB::HTMLOverflow::AUTO)
 		{
-			float heightChildren = finalChildY - element->y;
+			float heightChildren = finalChildY - (element->y + element->pt + element->bTt);
 			if (heightChildren > 0)
 			{
-				element->scrollBarScaleY = BLIB::HTMLElement::GetElementContentHeight(element) / heightChildren;
+				if (element->scrollBarScaleYDirty)
+				{
+					float elementHeight = BLIB::HTMLElement::GetElementContentHeight(element);
+					element->scrollBarScaleY = elementHeight / heightChildren;
+					element->scrollBarScaleYDirty = !element->scrollBarScaleYDirty;
+					element->scrollBarShiftScaleY = ((heightChildren + elementHeight) / 2) /(element->actualHeight - (((element->actualHeight - element->scrollSpacing)) * element->scrollBarScaleY));
+				}
 				if (element->scrollBarScaleY < 1.0f)
 					DrawVerticleScrollbar(element, device, cL, dData);
 			}
+		}
+
+		if (element->overflowHandling == BLIB::HTMLOverflow::AUTO || element->overflowHandling == BLIB::HTMLOverflow::HIDDEN)
+		{
+			sc->left = elementScLeft;
+			sc->right = elementScRight;
+			sc->top = elementScTop;
+			sc->bottom = elementScBottom;
+			cL->RSSetScissorRects(1, sc);
 		}
 	}
 
