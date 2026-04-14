@@ -1081,6 +1081,7 @@ class BGraph
 
 	BLIB::PointerList* root = new BLIB::PointerList();
 	BLIB::HTMLElement* current = NULL;
+	BLIB::HTMLElement* active = NULL;
 
 	BGraph(BGraph&) = delete;
 	DrawingData* dData = new DrawingData();
@@ -1164,10 +1165,96 @@ class BGraph
 		return element->hover;
 	}
 
+	bool HandleHTMLMouseUp(BLIB::HTMLElement* element, int x, int y)
+	{
+		//Have to check if its scroll bar first.
+		/*if (OnHorizontalScrollbar(element, x, y))
+		{
+			active = element;
+			element->scrollYSelected = false;
+			element->scrollXSelected = true;
+			element->scrollStartX = x;
+			element->scrollStartY = y;
+			return true;
+		}
+
+		if (OnVerticalScrollbar(element, x, y))
+		{
+			active = element;
+			element->scrollYSelected = true;
+			element->scrollXSelected = false;
+			element->scrollStartX = x;
+			element->scrollStartY = y;
+			return true;
+		}
+
+		for (int i = element->children.size() - 1; i >= 0; i--)
+		{
+			if (HandleHTMLClick(element->children.at(i), x, y))
+				return true;
+		}*/
+
+		if (active != NULL)
+		{
+			active->scrollXSelected = false;
+			active->scrollYSelected = false;
+		}
+		return true;
+	}
+
+	bool HandleHTMLMouseDown(BLIB::HTMLElement* element, int x, int y)
+	{
+		//Have to check if its scroll bar first.
+		if (OnHorizontalScrollbar(element, x, y))
+		{
+			active = element;
+			element->scrollYSelected = false;
+			element->scrollXSelected = true;
+			element->scrollStartX = x;
+			element->scrollStartY = y;
+			return true;
+		}
+
+		if (OnVerticalScrollbar(element, x, y))
+		{
+			active = element;
+			element->scrollYSelected = true;
+			element->scrollXSelected = false;
+			element->scrollStartX = x;
+			element->scrollStartY = y;
+			return true;
+		}
+
+		for (int i = element->children.size() - 1; i >= 0; i--)
+		{
+			if (HandleHTMLClick(element->children.at(i), x, y))
+				return true;
+		}
+	}
+
 	bool HandleHTMLClick(BLIB::HTMLElement* element, int x, int y)
 	{
 
 		//Have to check if its scroll bar first.
+		/*if (OnHorizontalScrollbar(element, x, y))
+		{
+			active = element;
+			element->scrollYSelected = false;
+			element->scrollXSelected = true;
+			element->scrollStartX = x;
+			element->scrollStartY = y;
+			return true;
+		}
+
+		if (OnVerticalScrollbar(element, x, y))
+		{
+			active = element;
+			element->scrollYSelected = true;
+			element->scrollXSelected = false;
+			element->scrollStartX = x;
+			element->scrollStartY = y;
+			return true;
+		}*/
 
 		for (int i = element->children.size() - 1; i >= 0; i--)
 		{
@@ -1244,8 +1331,37 @@ public:
 		HandleHTMLClick(current, x, y);
 	}
 
+	void HandleMouseDown(int x, int y)
+	{
+		HandleHTMLMouseDown(current, x, y);
+	}
+
+	void HandleMouseUp(int x, int y)
+	{
+		HandleHTMLMouseUp(current, x, y);
+	}
+
 	void HandleHover(int x, int y)
 	{
+		if (active != NULL && (active->scrollXSelected || active->scrollYSelected))
+		{
+			if (active->scrollXSelected)
+			{
+				float diffX = x - active->scrollStartX;
+				if (diffX < active->actualWidth - (((active->actualWidth - active->scrollSpacing)) * active->scrollBarScaleX) && diffX > 0)
+					active->scrollPosX = diffX;
+			}
+
+			if (active->scrollYSelected)
+			{
+				float diffY = y - active->scrollStartY;
+				if(diffY < active->actualHeight - (((active->actualHeight - active->scrollSpacing)) * active->scrollBarScaleX) && diffY > 0)
+					active->scrollPosY = diffY;
+			}
+
+			return;
+		}
+
 		HandleHTMLHover(current, x, y);
 	}
 
@@ -1752,7 +1868,7 @@ public:
 		dData->tempSettings.backgroundColor[2] = 0 / 255.0f;
 		dData->tempSettings.backgroundColor[3] = 128 / 255.0f;
 		dData->tempSettings.width = element->scrollBarThickness;
-		dData->tempSettings.height = element->actualHeight - element->scrollBarThickness;
+		dData->tempSettings.height = element->actualHeight;
 		dData->tempSettings.x = (element->x + element->actualWidth) - element->scrollBarThickness;
 		dData->tempSettings.y = element->y;
 		dData->tempSettings.borderRadius[0] = 0;
@@ -1762,17 +1878,16 @@ public:
 		dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, NULL);
 
 		float halfies = element->scrollBarThickness / 2.0f;
-		float spacing = 4;
 
 		dData->tempSettings.bools = 0;
 		dData->tempSettings.backgroundColor[0] = 64 / 255.0f;
 		dData->tempSettings.backgroundColor[1] = 64 / 255.0f;
 		dData->tempSettings.backgroundColor[2] = 64 / 255.0f;
 		dData->tempSettings.backgroundColor[3] = 128 / 255.0f;
-		dData->tempSettings.width = element->scrollBarThickness - spacing;
-		dData->tempSettings.height = ((element->actualHeight - spacing) - element->scrollBarThickness) * element->scrollBarScaleY;
-		dData->tempSettings.x = (element->x + element->actualWidth) - element->scrollBarThickness + (spacing / 2);
-		dData->tempSettings.y = element->y + (spacing / 2) + element->scrollPosY;
+		dData->tempSettings.width = element->scrollBarThickness - element->scrollSpacing;
+		dData->tempSettings.height = ((element->actualHeight - element->scrollSpacing)) * element->scrollBarScaleY;
+		dData->tempSettings.x = (element->x + element->actualWidth) - element->scrollBarThickness + (element->scrollSpacing / 2);
+		dData->tempSettings.y = element->y + (element->scrollSpacing / 2) + element->scrollPosY;
 		dData->tempSettings.borderRadius[0] = halfies;
 		dData->tempSettings.borderRadius[1] = halfies;
 		dData->tempSettings.borderRadius[2] = halfies;
@@ -1787,7 +1902,7 @@ public:
 		dData->tempSettings.backgroundColor[1] = 0 / 255.0f;
 		dData->tempSettings.backgroundColor[2] = 0 / 255.0f;
 		dData->tempSettings.backgroundColor[3] = 128 / 255.0f;
-		dData->tempSettings.width = element->actualWidth - element->scrollBarThickness;
+		dData->tempSettings.width = element->actualWidth;
 		dData->tempSettings.height = element->scrollBarThickness;
 		dData->tempSettings.x = element->x;
 		dData->tempSettings.y = (element->y + element->actualHeight) - element->scrollBarThickness;
@@ -1798,22 +1913,41 @@ public:
 		dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, NULL);
 
 		float halfies = element->scrollBarThickness / 2.0f;
-		float spacing = 4;
 
 		dData->tempSettings.bools = 0;
 		dData->tempSettings.backgroundColor[0] = 64 / 255.0f;
 		dData->tempSettings.backgroundColor[1] = 64 / 255.0f;
 		dData->tempSettings.backgroundColor[2] = 64 / 255.0f;
 		dData->tempSettings.backgroundColor[3] = 128 / 255.0f;
-		dData->tempSettings.width = ((element->actualWidth - spacing) - element->scrollBarThickness) * element->scrollBarScaleX;
-		dData->tempSettings.height = element->scrollBarThickness - spacing;
-		dData->tempSettings.x = element->x + (spacing / 2) + element->scrollPosX;
-		dData->tempSettings.y = (element->y + element->actualHeight) - element->scrollBarThickness + (spacing / 2);
+		dData->tempSettings.width = ((element->actualWidth - element->scrollSpacing)) * element->scrollBarScaleX;
+		dData->tempSettings.height = element->scrollBarThickness - element->scrollSpacing;
+		dData->tempSettings.x = element->x + (element->scrollSpacing / 2) + element->scrollPosX;
+		dData->tempSettings.y = (element->y + element->actualHeight) - element->scrollBarThickness + (element->scrollSpacing / 2);
 		dData->tempSettings.borderRadius[0] = halfies;
 		dData->tempSettings.borderRadius[1] = halfies;
 		dData->tempSettings.borderRadius[2] = halfies;
 		dData->tempSettings.borderRadius[3] = halfies;
 		dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, NULL);
+	}
+
+	bool OnVerticalScrollbar(BLIB::HTMLElement* element, int x, int y)
+	{
+		float width = element->scrollBarThickness - element->scrollSpacing;
+		float height = ((element->actualHeight - element->scrollSpacing)) * element->scrollBarScaleY;
+		float sx = (element->x + element->actualWidth) - element->scrollBarThickness + (element->scrollSpacing / 2);
+		float sy = element->y + (element->scrollSpacing / 2) + element->scrollPosY;
+
+		return x >= sx && x <= sx + width && y >= sy && y <= sy + height;
+	}
+
+	bool OnHorizontalScrollbar(BLIB::HTMLElement* element, int x, int y)
+	{
+		float width = ((element->actualWidth - element->scrollSpacing)) * element->scrollBarScaleX;
+		float height = element->scrollBarThickness - element->scrollSpacing;
+		float sx = element->x + (element->scrollSpacing / 2) + element->scrollPosX;
+		float sy = (element->y + element->actualHeight) - element->scrollBarThickness + (element->scrollSpacing / 2);
+		
+		return x >= sx && x <= sx + width && y >= sy && y <= sy + height;
 	}
 
 	void Refresh()
