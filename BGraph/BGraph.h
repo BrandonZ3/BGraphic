@@ -1205,29 +1205,35 @@ class BGraph
 	bool HandleHTMLMouseDown(BLIB::HTMLElement* element, int x, int y)
 	{
 		//Have to check if its scroll bar first.
-		if (OnHorizontalScrollbar(element, x, y))
-		{
-			active = element;
-			element->scrollYSelected = false;
-			element->scrollXSelected = true;
-			element->scrollStartX = x;
-			element->scrollStartY = y;
-			return true;
-		}
+			if (OnHorizontalScrollbar(element, x, y))
+			{
+				active = element;
+				if (!active->scrollXSelected && !active->scrollYSelected)
+				{
+					element->scrollYSelected = false;
+					element->scrollXSelected = true;
+					element->scrollStartX = x;
+					element->scrollStartY = y;
+				}
+				return true;
+			}
 
-		if (OnVerticalScrollbar(element, x, y))
-		{
-			active = element;
-			element->scrollYSelected = true;
-			element->scrollXSelected = false;
-			element->scrollStartX = x;
-			element->scrollStartY = y;
-			return true;
-		}
+			if (OnVerticalScrollbar(element, x, y))
+			{
+				active = element;
+				if (!active->scrollXSelected && !active->scrollYSelected)
+				{
+					element->scrollYSelected = true;
+					element->scrollXSelected = false;
+					element->scrollStartX = x;
+					element->scrollStartY = y;
+				}
+				return true;
+			}
 
 		for (int i = element->children.size() - 1; i >= 0; i--)
 		{
-			if (HandleHTMLClick(element->children.at(i), x, y))
+			if (HandleHTMLMouseDown(element->children.at(i), x, y))
 				return true;
 		}
 	}
@@ -1345,24 +1351,52 @@ public:
 	{
 		if (active != NULL && (active->scrollXSelected || active->scrollYSelected))
 		{
+			bool changed = false;
+			float diffX = 0;
+			float diffY = 0;
 			if (active->scrollXSelected)
 			{
-				float diffX = x - active->scrollStartX;
-				if (diffX < active->actualWidth - (((active->actualWidth - active->scrollSpacing)) * active->scrollBarScaleX) && diffX > 0)
-					active->scrollPosX = diffX;
+				diffX = x - active->scrollStartX;
+				active->scrollStartX = x;
+				if (active->scrollPosX + diffX < active->actualWidth - (((active->actualWidth - active->scrollSpacing)) * active->scrollBarScaleX) && active->scrollPosX + diffX >= 0)
+				{
+					active->scrollPosX += diffX;
+					changed = true;
+				}
+				else
+					diffX = 0;
 			}
 
 			if (active->scrollYSelected)
 			{
-				float diffY = y - active->scrollStartY;
-				if(diffY < active->actualHeight - (((active->actualHeight - active->scrollSpacing)) * active->scrollBarScaleX) && diffY > 0)
-					active->scrollPosY = diffY;
+				diffY = y - active->scrollStartY;
+				active->scrollStartY = y;
+				if (active->scrollPosY + diffY < active->actualHeight - (((active->actualHeight - active->scrollSpacing)) * active->scrollBarScaleX) && active->scrollPosY + diffY >= 0)
+				{
+					active->scrollPosY += diffY;
+					changed = true;
+				}
+				else
+					diffY = 0;
 			}
+
+			for (int i = 0; i < active->children.size(); i++)
+				ApplyScrolling(diffX / active->scrollBarScaleX, diffY / active->scrollBarScaleY, active->children.at(i));
 
 			return;
 		}
 
 		HandleHTMLHover(current, x, y);
+	}
+
+	void ApplyScrolling(float x, float y, BLIB::HTMLElement* element)
+	{
+		/*element->x -= x;
+		element->y -= y;
+		for (int i = 0; i < element->children.size(); i++)
+		{
+			ApplyScrolling(x, y, element->children.at(i));
+		}*/
 	}
 
 	void FindLinkedPages(BLIB::HTMLElement* element)
@@ -1862,7 +1896,7 @@ public:
 
 	void DrawVerticleScrollbar(BLIB::HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData)
 	{
-		dData->tempSettings.bools = 0;
+		/*dData->tempSettings.bools = 0;
 		dData->tempSettings.backgroundColor[0] = 0 / 255.0f;
 		dData->tempSettings.backgroundColor[1] = 0 / 255.0f;
 		dData->tempSettings.backgroundColor[2] = 0 / 255.0f;
@@ -1875,7 +1909,7 @@ public:
 		dData->tempSettings.borderRadius[1] = 0;
 		dData->tempSettings.borderRadius[2] = 0;
 		dData->tempSettings.borderRadius[3] = 0;
-		dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, NULL);
+		dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, NULL);*/
 
 		float halfies = element->scrollBarThickness / 2.0f;
 
@@ -1897,7 +1931,7 @@ public:
 
 	void DrawHorizontalScrollbar(BLIB::HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData)
 	{
-		dData->tempSettings.bools = 0;
+		/*dData->tempSettings.bools = 0;
 		dData->tempSettings.backgroundColor[0] = 0 / 255.0f;
 		dData->tempSettings.backgroundColor[1] = 0 / 255.0f;
 		dData->tempSettings.backgroundColor[2] = 0 / 255.0f;
@@ -1910,7 +1944,7 @@ public:
 		dData->tempSettings.borderRadius[1] = 0;
 		dData->tempSettings.borderRadius[2] = 0;
 		dData->tempSettings.borderRadius[3] = 0;
-		dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, NULL);
+		dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, NULL);*/
 
 		float halfies = element->scrollBarThickness / 2.0f;
 
