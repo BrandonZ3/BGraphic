@@ -1093,6 +1093,8 @@ class BGraph
 	int height;
 	int width;
 
+	BLIB::DBuffer* activeKeys = new BLIB::DBuffer();
+
 	void bGNavigate(const char* pageName)
 	{
 		BLIB::KeyPointerPair* value = BLIB::KeyPointerPair::GetKeyValuePointer(root, pageName);
@@ -1231,11 +1233,18 @@ class BGraph
 				return true;
 			}
 
+			if (element->type == BLIB::HTMLElementType::INPUT && TestCoordinates(element, x, y))
+			{
+				active = element;
+				return true;
+			}
+
 		for (int i = element->children.size() - 1; i >= 0; i--)
 		{
 			if (HandleHTMLMouseDown(element->children.at(i), x, y))
 				return true;
 		}
+		return false;
 	}
 
 	bool HandleHTMLClick(BLIB::HTMLElement* element, int x, int y)
@@ -1330,6 +1339,51 @@ public:
 
 		textureHeapIncrementSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		AddTexture(device, commandList, textTextureLocation);
+	}
+
+	void UpdateActiveKeys(BLIB::DBuffer* keys)
+	{
+		if (active != NULL && active->type == BLIB::HTMLElementType::INPUT)
+		{
+			unsigned char* activePointer = activeKeys->DataPointer(0);
+			unsigned char* keysPointer = keys->DataPointer(0);
+			if (activeKeys->count != 0)
+			{
+				for (int i = 0; i < activeKeys->count; i++)
+				{
+					bool found = false;
+					for (int x = 0; x < keys->count; x++)
+					{
+						if (activePointer[i] == keysPointer[x])
+						{
+							found = true;
+							break;
+						}
+					}
+
+					if (!found)
+					{
+						//ToAsciiEx() //WM_CHAR should be used for this code, need a TextKeyboard for this and backspace should be able to repeat, but rn its on framerate lol.
+						unsigned char character = BLIB::Keyboard::TranslateKeyboardToHTMLTextChar(activePointer[i]);
+						BLIB::HTMLTextCharacter c;
+						c.character = character;
+
+						if (character != 0x8)
+							active->characters.push_back(c);
+						else if(active->characters.size() > 0)
+							active->characters.pop_back();
+					}
+				}
+
+				activeKeys->Clear();
+				activeKeys->Add(keysPointer, keys->count);
+			}
+			else
+			{
+				activeKeys->Clear();
+				activeKeys->Add(keysPointer, keys->count);
+			}
+		}
 	}
 
 	void HandleClick(int x, int y)
