@@ -1343,46 +1343,74 @@ public:
 
 	void UpdateActiveKeys(BLIB::DBuffer* keys)
 	{
-		if (active != NULL && active->type == BLIB::HTMLElementType::INPUT)
+		//if (active != NULL && active->type == BLIB::HTMLElementType::INPUT)
+		//{
+		//	unsigned char* activePointer = activeKeys->DataPointer(0);
+		//	unsigned char* keysPointer = keys->DataPointer(0);
+		//	if (activeKeys->count != 0)
+		//	{
+		//		for (int i = 0; i < activeKeys->count; i++)
+		//		{
+		//			bool found = false;
+		//			for (int x = 0; x < keys->count; x++)
+		//			{
+		//				if (activePointer[i] == keysPointer[x])
+		//				{
+		//					found = true;
+		//					break;
+		//				}
+		//			}
+
+		//			if (!found)
+		//			{
+		//				//ToAsciiEx() //WM_CHAR should be used for this code, need a TextKeyboard for this and backspace should be able to repeat, but rn its on framerate lol.
+		//				unsigned char character = BLIB::Keyboard::TranslateKeyboardToHTMLTextChar(activePointer[i]);
+		//				BLIB::HTMLTextCharacter c;
+		//				c.character = character;
+
+		//				if (character != 0x8)
+		//					active->characters.push_back(c);
+		//				else if(active->characters.size() > 0)
+		//					active->characters.pop_back();
+		//			}
+		//		}
+
+		//		activeKeys->Clear();
+		//		activeKeys->Add(keysPointer, keys->count);
+		//	}
+		//	else
+		//	{
+		//		activeKeys->Clear();
+		//		activeKeys->Add(keysPointer, keys->count);
+		//	}
+		//}
+
+		if (active != NULL && keys != NULL && active->type == BLIB::HTMLElementType::INPUT)
 		{
-			unsigned char* activePointer = activeKeys->DataPointer(0);
 			unsigned char* keysPointer = keys->DataPointer(0);
-			if (activeKeys->count != 0)
+			for (int i = 0; i < keys->count; i++)
 			{
-				for (int i = 0; i < activeKeys->count; i++)
-				{
-					bool found = false;
-					for (int x = 0; x < keys->count; x++)
-					{
-						if (activePointer[i] == keysPointer[x])
-						{
-							found = true;
-							break;
-						}
-					}
-
-					if (!found)
-					{
-						//ToAsciiEx() //WM_CHAR should be used for this code, need a TextKeyboard for this and backspace should be able to repeat, but rn its on framerate lol.
-						unsigned char character = BLIB::Keyboard::TranslateKeyboardToHTMLTextChar(activePointer[i]);
-						BLIB::HTMLTextCharacter c;
-						c.character = character;
-
-						if (character != 0x8)
-							active->characters.push_back(c);
-						else if(active->characters.size() > 0)
-							active->characters.pop_back();
-					}
-				}
-
-				activeKeys->Clear();
-				activeKeys->Add(keysPointer, keys->count);
+				unsigned char character = BLIB::Keyboard::TranslateKeyboardToHTMLTextChar(keysPointer[i]);
+				BLIB::HTMLTextCharacter c;
+				c.character = character; 
+				if (character != 0x8)
+					active->characters.push_back(c);
+				else if(active->characters.size() > 0)
+					active->characters.pop_back();
+				active->textDirty = true;
 			}
-			else
+
+			float totalWidth = active->characters.size() * active->fontsize;
+			float contentWidth = BLIB::HTMLElement::GetElementContentWidth(active);
+			float overflow = totalWidth - contentWidth;
+
+			if (overflow > 0 && !active->textwrap)
 			{
-				activeKeys->Clear();
-				activeKeys->Add(keysPointer, keys->count);
+				for (int i = 0; i < active->characters.size(); i++)
+					active->characters.at(i).x -= overflow;
 			}
+
+			//BLIB::HTMLParser::ResolveHTML(active, variables);
 		}
 	}
 
