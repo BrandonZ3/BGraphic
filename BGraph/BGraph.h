@@ -1101,6 +1101,7 @@ class BGraph
 		if (value != NULL)
 		{
 			current = (BLIB::HTMLElement*)value->pointer;
+			Refresh();
 		}
 	}
 
@@ -1207,7 +1208,7 @@ class BGraph
 	bool HandleHTMLMouseDown(BLIB::HTMLElement* element, int x, int y)
 	{
 		//Have to check if its scroll bar first.
-			if (OnHorizontalScrollbar(element, x, y))
+			if (element->overflowHandling == BLIB::HTMLOverflow::AUTO && element->scrollBarScaleX < 1.0f && OnHorizontalScrollbar(element, x, y))
 			{
 				active = element;
 				if (!active->scrollXSelected && !active->scrollYSelected)
@@ -1220,7 +1221,7 @@ class BGraph
 				return true;
 			}
 
-			if (OnVerticalScrollbar(element, x, y))
+			if (element->overflowHandling == BLIB::HTMLOverflow::AUTO && element->scrollBarScaleY < 1.0f && OnVerticalScrollbar(element, x, y))
 			{
 				active = element;
 				if (!active->scrollXSelected && !active->scrollYSelected)
@@ -1277,9 +1278,17 @@ class BGraph
 				return true;
 		}
 
-
 		if (TestCoordinates(element, x, y))
 		{
+			if (element == active && active->inputType == BLIB::HTMLInputType::CHECKBOX)
+			{
+				active->checked = !active->checked;
+				active->bGr = 255 - active->bGr;
+				active->bGg = 255 - active->bGg;
+				active->bGb = 255 - active->bGb;
+				return true;
+			}
+
 			BLIB::KeyPointerPair* value = BLIB::KeyPointerPair::GetKeyValuePointer(element->attributes, "bGClick");
 			if (value != NULL)
 			{
@@ -1343,49 +1352,7 @@ public:
 
 	void UpdateActiveKeys(BLIB::DBuffer* keys)
 	{
-		//if (active != NULL && active->type == BLIB::HTMLElementType::INPUT)
-		//{
-		//	unsigned char* activePointer = activeKeys->DataPointer(0);
-		//	unsigned char* keysPointer = keys->DataPointer(0);
-		//	if (activeKeys->count != 0)
-		//	{
-		//		for (int i = 0; i < activeKeys->count; i++)
-		//		{
-		//			bool found = false;
-		//			for (int x = 0; x < keys->count; x++)
-		//			{
-		//				if (activePointer[i] == keysPointer[x])
-		//				{
-		//					found = true;
-		//					break;
-		//				}
-		//			}
-
-		//			if (!found)
-		//			{
-		//				//ToAsciiEx() //WM_CHAR should be used for this code, need a TextKeyboard for this and backspace should be able to repeat, but rn its on framerate lol.
-		//				unsigned char character = BLIB::Keyboard::TranslateKeyboardToHTMLTextChar(activePointer[i]);
-		//				BLIB::HTMLTextCharacter c;
-		//				c.character = character;
-
-		//				if (character != 0x8)
-		//					active->characters.push_back(c);
-		//				else if(active->characters.size() > 0)
-		//					active->characters.pop_back();
-		//			}
-		//		}
-
-		//		activeKeys->Clear();
-		//		activeKeys->Add(keysPointer, keys->count);
-		//	}
-		//	else
-		//	{
-		//		activeKeys->Clear();
-		//		activeKeys->Add(keysPointer, keys->count);
-		//	}
-		//}
-
-		if (active != NULL && keys != NULL && active->type == BLIB::HTMLElementType::INPUT)
+		if (active != NULL && keys != NULL && active->type == BLIB::HTMLElementType::INPUT && active->inputType != BLIB::HTMLInputType::CHECKBOX && active->inputType != BLIB::HTMLInputType::RANGE)
 		{
 			unsigned char* keysPointer = keys->DataPointer(0);
 			for (int i = 0; i < keys->count; i++)
@@ -1400,17 +1367,46 @@ public:
 				active->textDirty = true;
 			}
 
-			float totalWidth = active->characters.size() * active->fontsize;
-			float contentWidth = BLIB::HTMLElement::GetElementContentWidth(active);
-			float overflow = totalWidth - contentWidth;
+			/*if (active->textDirty)
+				BLIB::HTMLParser::ResolveHTML(active->parent, variables);*/
 
-			if (overflow > 0 && !active->textwrap)
+			if (active->textwrap == false)
 			{
-				for (int i = 0; i < active->characters.size(); i++)
-					active->characters.at(i).x -= overflow;
+				float totalWidth = active->characters.size() * active->fontsize;
+				float contentWidth = BLIB::HTMLElement::GetElementContentWidth(active);
+				float overflow = totalWidth - contentWidth;
+				
+				if (overflow > 0 && !active->textwrap && active->textDirty)
+				{
+					for (int i = 0; i < active->characters.size(); i++)
+						active->characters.at(i).x -= overflow;
+				}
 			}
 
-			//BLIB::HTMLParser::ResolveHTML(active, variables);
+			if (keys->count > 0 && active->textDirty)
+			{
+				BLIB::KeyPointerPair* val = BLIB::KeyPointerPair::GetKeyValuePointer(active->attributes, "value");
+
+				if (val != NULL && BLIB::Strings::Contains((char*)val->pointer, "{{"))
+				{
+					char* varName = BLIB::Strings::Replace((char*)val->pointer, "{{", "");
+					BLIB::Strings::FreeAndAssign(&varName, BLIB::Strings::Replace(varName, "}}", ""));
+					BLIB::Strings::FreeAndAssign(&varName, BLIB::Strings::Trim(varName));
+
+					int size = active->characters.size();
+					char* newString = (char*)malloc(size + 1);
+					newString[size] = 0;
+					for (int i = 0; i < size; i++)
+					{
+						newString[i] = BLIB::Keyboard::TranslateHTMLTextCharToKeyboard(active->characters.at(i).character);
+					}
+
+					SetVariable(varName, newString, false);
+
+					free(varName);
+				}
+				Refresh();
+			}
 		}
 	}
 
@@ -1475,6 +1471,16 @@ public:
 	{
 		element->x -= x;
 		element->y -= y;
+
+		if (element->characters.size() > 0)
+		{
+			for (int i = 0; i < element->characters.size(); i++)
+			{
+				element->characters.at(i).x -= x;
+				element->characters.at(i).y -= y;
+			}
+		}
+
 		for (int i = 0; i < element->children.size(); i++)
 		{
 			ApplyScrolling(x, y, element->children.at(i));
@@ -1883,14 +1889,14 @@ public:
 					float elementHeight = BLIB::HTMLElement::GetElementContentHeight(element);
 					element->scrollBarScaleY = elementHeight / heightChildren;
 					element->scrollBarScaleYDirty = !element->scrollBarScaleYDirty;
-					element->scrollBarShiftScaleY = ((heightChildren + elementHeight) / 2) /(element->actualHeight - (((element->actualHeight - element->scrollSpacing)) * element->scrollBarScaleY));
+					element->scrollBarShiftScaleY = ((heightChildren + elementHeight) / 2) / (element->actualHeight - (((element->actualHeight - element->scrollSpacing)) * element->scrollBarScaleY));
 				}
 				if (element->scrollBarScaleY < 1.0f)
 					DrawVerticleScrollbar(element, device, cL, dData);
 			}
 		}
 
-		if (element->overflowHandling == BLIB::HTMLOverflow::AUTO || element->overflowHandling == BLIB::HTMLOverflow::HIDDEN)
+		if ((element->overflowHandling == BLIB::HTMLOverflow::AUTO || element->overflowHandling == BLIB::HTMLOverflow::HIDDEN) && element->children.size() > 0)
 		{
 			sc->left = elementScLeft;
 			sc->right = elementScRight;
@@ -1981,14 +1987,14 @@ public:
 		element->width = width;
 		element->height = height;
 
-		BLIB::HTMLParser::ResolveConditionalHTML(element, variables);
+		BLIB::HTMLParser::ResolveDynamicHTML(element, variables);
 		BLIB::HTMLParser::ResolveHTML(element, variables);
 
 		BLIB::KeyPointerPair* kpp = new BLIB::KeyPointerPair(name, element);
 		this->root->AddPointer(kpp);
 	}
 
-	void SetVariable(const char* name, const char* json)
+	void SetVariable(const char* name, const char* json, bool allowRefresh = true)
 	{
 		BLIB::KeyPointerPair* point = BLIB::KeyPointerPair::GetKeyValuePointer(variables, name);
 
@@ -2001,6 +2007,54 @@ public:
 		{
 			point = new BLIB::KeyPointerPair(BLIB::Strings::Clone(name), BLIB::Strings::Clone(json));
 			variables->AddPointer(point);
+		}
+
+		if(allowRefresh)
+			Refresh();
+	}
+
+	void UpdateElementValues(BLIB::HTMLElement* element)
+	{
+		if (element->type == BLIB::HTMLElementType::INPUT)
+		{
+			for (int i = 0; i < element->attributes->count; i++)
+			{
+				BLIB::KeyPointerPair* pair = (BLIB::KeyPointerPair*)element->attributes->items[i];
+				if (BLIB::Strings::CompareCaseInsensitive(pair->key, "value"))
+				{
+					switch (element->inputType)
+					{
+						case(BLIB::HTMLInputType::CHECKBOX):
+						{
+							char* val = BLIB::HTMLElement::HTMLStringInterpolate((char*)pair->pointer, variables);
+							free(val);
+							break;
+						}
+						case(BLIB::HTMLInputType::TEXTAREA):
+						case(BLIB::HTMLInputType::TEXT):
+						{
+							char* val = BLIB::HTMLElement::HTMLStringInterpolate((char*)pair->pointer, variables);
+							int valLength = BLIB::Strings::Length(val);
+							element->characters.clear();
+						
+							for (int x = 0; x < valLength; x++)
+							{
+								BLIB::HTMLTextCharacter c;
+								c.character = BLIB::Keyboard::TranslateKeyboardToHTMLTextChar(val[x]);
+								element->characters.push_back(c);
+							}
+							element->textDirty = true;
+							free(val);
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		for (int i = 0; i < element->children.size(); i++)
+		{
+			UpdateElementValues(element->children.at(i));
 		}
 	}
 
@@ -2103,7 +2157,8 @@ public:
 	void Refresh()
 	{
 		BLIB::HTMLElement::HTMLInvalidateAll(current);
-		BLIB::HTMLParser::ResolveConditionalHTML(current, variables);
+		BLIB::HTMLParser::ResolveDynamicHTML(current, variables);
+		UpdateElementValues(current);
 		BLIB::HTMLParser::ResolveHTML(current, variables);
 	}
 
