@@ -1077,7 +1077,7 @@ class BGraph
 	std::vector<char*> files;	//name and fn*
 	BLIB::PointerList* functions = new BLIB::PointerList();	//name and fn*
 	BLIB::PointerList* pages = new BLIB::PointerList();		//name and json
-	BLIB::PointerList* variables = new BLIB::PointerList();	//name and json
+	BLIB::JSONElement* variables = new BLIB::JSONElement();
 
 	BLIB::PointerList* root = new BLIB::PointerList();
 	BLIB::HTMLElement* current = NULL;
@@ -1112,17 +1112,19 @@ class BGraph
 
 	void bGSet(BLIB::HTMLElement* element, const char* varname, const char* value)
 	{
-		BLIB::KeyPointerPair* var = BLIB::KeyPointerPair::GetKeyValuePointer(variables, varname);
+		BLIB::JSONElement* var = BLIB::JSONElement::GetElement(varname, variables);
 
 		if (var != NULL)
 		{
-			free(var->pointer);
-			var->pointer = BLIB::Strings::Clone(value);
+			free(var->value);
+			var->value = BLIB::Strings::Clone(value);
 		}
 		else
 		{
-			BLIB::KeyPointerPair* newVar = new BLIB::KeyPointerPair(BLIB::Strings::Clone(varname), BLIB::Strings::Clone(value));
-			variables->AddPointer(newVar);
+			BLIB::JSONElement* newVar = new BLIB::JSONElement();
+			newVar->name = BLIB::Strings::Clone(varname);
+			newVar->value = BLIB::Strings::Clone(value);
+			variables->children->AddPointer(newVar);
 		}
 
 		Refresh();
@@ -1996,17 +1998,19 @@ public:
 
 	void SetVariable(const char* name, const char* json, bool allowRefresh = true)
 	{
-		BLIB::KeyPointerPair* point = BLIB::KeyPointerPair::GetKeyValuePointer(variables, name);
+		BLIB::JSONElement* var = BLIB::JSONElement::GetElement(name, variables);
 
-		if (point != NULL)
+		if (var != NULL)
 		{
-			free(point->pointer);
-			point->pointer = BLIB::Strings::Clone(json);
+			free(var->value);
+			var->value = BLIB::Strings::Clone(json);
 		}
 		else
 		{
-			point = new BLIB::KeyPointerPair(BLIB::Strings::Clone(name), BLIB::Strings::Clone(json));
-			variables->AddPointer(point);
+			BLIB::JSONElement* newVar = new BLIB::JSONElement();
+			newVar->name = BLIB::Strings::Clone(name);
+			newVar->value = BLIB::Strings::Clone(json);
+			variables->children->AddPointer(newVar);
 		}
 
 		if(allowRefresh)
@@ -2015,10 +2019,11 @@ public:
 
 	char* GetVariableValue(const char* name)
 	{
-		BLIB::KeyPointerPair* point = BLIB::KeyPointerPair::GetKeyValuePointer(variables, name);
 
-		if (point != NULL)
-			return (char*)point->pointer;
+		BLIB::JSONElement* var = BLIB::JSONElement::GetElement(name, variables);
+
+		if (var != NULL)
+			return (char*)var->value;
 		return NULL;
 	}
 
@@ -2225,18 +2230,18 @@ public:
 			free(kpp->key);
 			free(kpp->pointer); // this is a char* so deconstructor not needed
 		}
-		for (int i = 0; i < variables->count; i++)
-		{
-			BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)variables->items[i];
-			free(kpp->key);
-			free(kpp->pointer); // this is a char* so deconstructor not needed
-		}
+		//for (int i = 0; i < variables->count; i++)
+		//{
+		//	BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)variables->items[i];
+		//	free(kpp->key);
+		//	free(kpp->pointer); // this is a char* so deconstructor not needed
+		//}
 
 		delete root;
 
 		functions->FreeEverything();
 		pages->FreeEverything();
-		variables->FreeEverything();
+		//variables->FreeEverything();
 		delete functions;
 		delete pages;
 		delete variables;
