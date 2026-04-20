@@ -1401,7 +1401,7 @@ public:
 						newString[i] = BLIB::Keyboard::TranslateHTMLTextCharToKeyboard(active->characters.at(i).character);
 					}
 
-					SetVariable(varName, newString, false);
+					SetVariable(varName, newString, false);//This is not gonna work for nested json
 
 					free(varName);
 				}
@@ -2013,6 +2013,15 @@ public:
 			Refresh();
 	}
 
+	char* GetVariableValue(const char* name)
+	{
+		BLIB::KeyPointerPair* point = BLIB::KeyPointerPair::GetKeyValuePointer(variables, name);
+
+		if (point != NULL)
+			return (char*)point->pointer;
+		return NULL;
+	}
+
 	void UpdateElementValues(BLIB::HTMLElement* element)
 	{
 		if (element->type == BLIB::HTMLElementType::INPUT)
@@ -2027,6 +2036,15 @@ public:
 						case(BLIB::HTMLInputType::CHECKBOX):
 						{
 							char* val = BLIB::HTMLElement::HTMLStringInterpolate((char*)pair->pointer, variables);
+
+							if (BLIB::Strings::CompareCaseInsensitive(val, "true") && !element->checked)
+							{
+								element->checked = !element->checked;
+								element->bGr = 255 - element->bGr;
+								element->bGg = 255 - element->bGg;
+								element->bGb = 255 - element->bGb;
+							}
+
 							free(val);
 							break;
 						}
