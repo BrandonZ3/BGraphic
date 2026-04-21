@@ -1112,19 +1112,43 @@ class BGraph
 
 	void bGSet(BLIB::HTMLElement* element, const char* varname, const char* value)
 	{
-		BLIB::JSONElement* var = BLIB::JSONElement::GetElement(varname, variables);
-
-		if (var != NULL)
+		BLIB::JSONElement* var = BLIB::JSONElement::GetElement(varname, variables, true);
+		int valueLength = BLIB::Strings::Length(value);
+		if (value[0] == '*' && value[valueLength - 1] == '*')
 		{
-			free(var->value);
-			var->value = BLIB::Strings::Clone(value);
+			char* refName = BLIB::Strings::Replace(value, "*", "");
+			BLIB::JSONElement* ref = BLIB::JSONElement::GetElement(refName, variables, true);
+
+			if (var->type != BLIB::JSONElementType::NONE)
+			{
+				delete var;
+				var = BLIB::JSONElement::GetElement(varname, variables, true);
+				BLIB::JSONElement::ConvertBlankToRenamedReference(var, varname, ref);
+			}
+			else
+				BLIB::JSONElement::ConvertBlankToRenamedReference(var, varname, ref);
+			free(refName);
 		}
 		else
 		{
-			BLIB::JSONElement* newVar = new BLIB::JSONElement();
-			newVar->name = BLIB::Strings::Clone(varname);
-			newVar->value = BLIB::Strings::Clone(value);
-			variables->children->AddPointer(newVar);
+
+			if (var->type == BLIB::JSONElementType::NONE)
+			{
+				var->type = BLIB::JSONElementType::KVP;
+			}
+
+			if (var != NULL)
+			{
+				free(var->value);
+				var->value = BLIB::Strings::Clone(value);
+			}
+			else
+			{
+				BLIB::JSONElement* newVar = new BLIB::JSONElement();
+				newVar->name = BLIB::Strings::Clone(varname);
+				newVar->value = BLIB::Strings::Clone(value);
+				variables->children->AddPointer(newVar);
+			}
 		}
 
 		Refresh();
@@ -1998,7 +2022,12 @@ public:
 
 	void SetVariable(const char* name, const char* json, bool allowRefresh = true)
 	{
-		BLIB::JSONElement* var = BLIB::JSONElement::GetElement(name, variables);
+		BLIB::JSONElement* var = BLIB::JSONElement::GetElement(name, variables, true);
+
+		if (var->type == BLIB::JSONElementType::NONE)
+		{
+			var->type = BLIB::JSONElementType::KVP;
+		}
 
 		if (var != NULL)
 		{
@@ -2017,9 +2046,8 @@ public:
 			Refresh();
 	}
 
-	char* GetVariableValue(const char* name)
+	char* GetVariableValueReference(const char* name)
 	{
-
 		BLIB::JSONElement* var = BLIB::JSONElement::GetElement(name, variables);
 
 		if (var != NULL)
