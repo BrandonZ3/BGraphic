@@ -2085,17 +2085,20 @@ public:
 						case(BLIB::HTMLInputType::TEXT):
 						{
 							char* val = BLIB::HTMLElement::HTMLStringInterpolate((char*)pair->pointer, variables);
-							int valLength = BLIB::Strings::Length(val);
-							element->characters.clear();
-						
-							for (int x = 0; x < valLength; x++)
+							if (val != NULL)
 							{
-								BLIB::HTMLTextCharacter c;
-								c.character = BLIB::Keyboard::TranslateKeyboardToHTMLTextChar(val[x]);
-								element->characters.push_back(c);
+								int valLength = BLIB::Strings::Length(val);
+								element->characters.clear();
+
+								for (int x = 0; x < valLength; x++)
+								{
+									BLIB::HTMLTextCharacter c;
+									c.character = BLIB::Keyboard::TranslateKeyboardToHTMLTextChar(val[x]);
+									element->characters.push_back(c);
+								}
+								element->textDirty = true;
+								free(val);
 							}
-							element->textDirty = true;
-							free(val);
 							break;
 						}
 					}
