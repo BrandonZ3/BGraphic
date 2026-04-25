@@ -1455,62 +1455,73 @@ public:
 	{
 		if (active != NULL && (active->scrollXSelected || active->scrollYSelected))
 		{
-			bool changed = false;
 			float diffX = 0;
 			float diffY = 0;
 			if (active->scrollXSelected)
 			{
 				diffX = x - active->scrollStartX;
 				active->scrollStartX = x;
-				if (active->scrollPosX + diffX < active->actualWidth - (((active->actualWidth - active->scrollSpacing)) * active->scrollBarScaleX) && active->scrollPosX + diffX >= 0)
+				if (active->scrollPosX + diffX <= active->actualWidth - (((active->actualWidth - active->scrollSpacing)) * active->scrollBarScaleX))
 				{
-					active->scrollPosX += diffX;
-					changed = true;
+					if(active->scrollPosX + diffX >= 0)
+						active->scrollPosX += diffX;
+					else
+					{
+						diffX = 0 - active->scrollPosX;
+						if (diffX > -0.001)
+							diffX = 0;
+						active->scrollPosX += diffX;
+					}
 				}
 				else
+				{
 					diffX = 0;
+					double val = (active->actualWidth - (((active->actualWidth - active->scrollSpacing)) * active->scrollBarScaleX)) - active->scrollPosX;
+					diffX = val;
+
+					if (diffX < 0.001)
+						diffX = 0;
+
+					active->scrollPosX += diffX;
+				}
 			}
 
 			if (active->scrollYSelected)
 			{
 				diffY = y - active->scrollStartY;
 				active->scrollStartY = y;
-				if (active->scrollPosY + diffY < active->actualHeight - (((active->actualHeight - active->scrollSpacing)) * active->scrollBarScaleY) && active->scrollPosY + diffY >= 0)
+				if (active->scrollPosY + diffY <= active->actualHeight - (((active->actualHeight - active->scrollSpacing)) * active->scrollBarScaleY))
 				{
-					active->scrollPosY += diffY;
-					changed = true;
+					if(active->scrollPosY + diffY >= 0)
+						active->scrollPosY += diffY;
+					else
+					{
+						diffY = 0 - active->scrollPosY;
+						if (diffY > -0.001)
+							diffY = 0;
+						active->scrollPosY += diffY;
+					}
 				}
 				else
+				{
 					diffY = 0;
+					double val = (active->actualHeight - (((active->actualHeight - active->scrollSpacing)) * active->scrollBarScaleY)) - active->scrollPosY;
+					diffY = val;
+
+					if (diffY < 0.001)
+						diffY = 0;
+
+					active->scrollPosY += diffY;
+				}
 			}
 
 			for (int i = 0; i < active->children.size(); i++)
-				ApplyScrolling(diffX * active->scrollBarShiftScaleX, diffY * active->scrollBarShiftScaleY, active->children.at(i));
+				BLIB::HTMLElement::ApplyScrolling(diffX * active->scrollBarShiftScaleX, diffY * active->scrollBarShiftScaleY, active->children.at(i));
 
 			return;
 		}
 
 		HandleHTMLHover(current, x, y);
-	}
-
-	void ApplyScrolling(float x, float y, BLIB::HTMLElement* element)
-	{
-		element->x -= x;
-		element->y -= y;
-
-		if (element->characters.size() > 0)
-		{
-			for (int i = 0; i < element->characters.size(); i++)
-			{
-				element->characters.at(i).x -= x;
-				element->characters.at(i).y -= y;
-			}
-		}
-
-		for (int i = 0; i < element->children.size(); i++)
-		{
-			ApplyScrolling(x, y, element->children.at(i));
-		}
 	}
 
 	void FindLinkedPages(BLIB::HTMLElement* element)
@@ -1898,7 +1909,7 @@ public:
 					float elementWidth = BLIB::HTMLElement::GetElementContentWidth(element);
 					element->scrollBarScaleX = elementWidth / widthChildren;
 					element->scrollBarScaleXDirty = !element->scrollBarScaleXDirty;
-					element->scrollBarShiftScaleX = ((widthChildren + elementWidth) / 2) / (element->actualWidth - (((element->actualWidth - element->scrollSpacing)) * element->scrollBarScaleX));
+					element->scrollBarShiftScaleX = ((widthChildren - elementWidth)) / (element->actualWidth - (((element->actualWidth - element->scrollSpacing)) * element->scrollBarScaleX));
 				}
 				if (element->scrollBarScaleX < 1.0f)
 					DrawHorizontalScrollbar(element, device, cL, dData);
@@ -1915,7 +1926,7 @@ public:
 					float elementHeight = BLIB::HTMLElement::GetElementContentHeight(element);
 					element->scrollBarScaleY = elementHeight / heightChildren;
 					element->scrollBarScaleYDirty = !element->scrollBarScaleYDirty;
-					element->scrollBarShiftScaleY = ((heightChildren + elementHeight) / 2) / (element->actualHeight - (((element->actualHeight - element->scrollSpacing)) * element->scrollBarScaleY));
+					element->scrollBarShiftScaleY = ((heightChildren - elementHeight)) / (element->actualHeight - (((element->actualHeight - element->scrollSpacing)) * element->scrollBarScaleY));
 				}
 				if (element->scrollBarScaleY < 1.0f)
 					DrawVerticleScrollbar(element, device, cL, dData);
@@ -2069,16 +2080,18 @@ public:
 						case(BLIB::HTMLInputType::CHECKBOX):
 						{
 							char* val = BLIB::HTMLElement::HTMLStringInterpolate((char*)pair->pointer, variables);
-
-							if (BLIB::Strings::CompareCaseInsensitive(val, "true") && !element->checked)
+							if (val != NULL)
 							{
-								element->checked = !element->checked;
-								element->bGr = 255 - element->bGr;
-								element->bGg = 255 - element->bGg;
-								element->bGb = 255 - element->bGb;
-							}
+								if (BLIB::Strings::CompareCaseInsensitive(val, "true") && !element->checked)
+								{
+									element->checked = !element->checked;
+									element->bGr = 255 - element->bGr;
+									element->bGg = 255 - element->bGg;
+									element->bGb = 255 - element->bGb;
+								}
 
-							free(val);
+								free(val);
+							}
 							break;
 						}
 						case(BLIB::HTMLInputType::TEXTAREA):
