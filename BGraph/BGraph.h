@@ -1082,6 +1082,7 @@ class BGraph
 	BLIB::PointerList* root = new BLIB::PointerList();
 	BLIB::HTMLElement* current = NULL;
 	BLIB::HTMLElement* active = NULL;
+	BLIB::HTMLElement* lastTouched = NULL;
 
 	BGraph(BGraph&) = delete;
 	DrawingData* dData = new DrawingData();
@@ -1233,70 +1234,62 @@ class BGraph
 
 	bool HandleHTMLMouseDown(BLIB::HTMLElement* element, int x, int y)
 	{
+		bool testClicked = TestCoordinates(element, x, y);
 		//Have to check if its scroll bar first.
-			if (element->overflowHandling == BLIB::HTMLOverflow::AUTO && element->scrollBarScaleX < 1.0f && OnHorizontalScrollbar(element, x, y))
-			{
-				active = element;
-				if (!active->scrollXSelected && !active->scrollYSelected)
-				{
-					element->scrollYSelected = false;
-					element->scrollXSelected = true;
-					element->scrollStartX = x;
-					element->scrollStartY = y;
-				}
-				return true;
-			}
-
-			if (element->overflowHandling == BLIB::HTMLOverflow::AUTO && element->scrollBarScaleY < 1.0f && OnVerticalScrollbar(element, x, y))
-			{
-				active = element;
-				if (!active->scrollXSelected && !active->scrollYSelected)
-				{
-					element->scrollYSelected = true;
-					element->scrollXSelected = false;
-					element->scrollStartX = x;
-					element->scrollStartY = y;
-				}
-				return true;
-			}
-
-			if (element->type == BLIB::HTMLElementType::INPUT && TestCoordinates(element, x, y))
-			{
-				active = element;
-				return true;
-			}
-
-		for (int i = element->children.size() - 1; i >= 0; i--)
+		if (element->overflowHandling == BLIB::HTMLOverflow::AUTO && element->scrollBarScaleX < 1.0f && OnHorizontalScrollbar(element, x, y))
 		{
-			if (HandleHTMLMouseDown(element->children.at(i), x, y))
-				return true;
+			active = element;
+			lastTouched = element;
+			if (!active->scrollXSelected && !active->scrollYSelected)
+			{
+				element->scrollYSelected = false;
+				element->scrollXSelected = true;
+				element->scrollStartX = x;
+				element->scrollStartY = y;
+			}
+			return true;
 		}
+
+		if (element->overflowHandling == BLIB::HTMLOverflow::AUTO && element->scrollBarScaleY < 1.0f && OnVerticalScrollbar(element, x, y))
+		{
+			active = element;
+			lastTouched = element;
+			if (!active->scrollXSelected && !active->scrollYSelected)
+			{
+				element->scrollYSelected = true;
+				element->scrollXSelected = false;
+				element->scrollStartX = x;
+				element->scrollStartY = y;
+			}
+			return true;
+		}
+
+		if (element->type == BLIB::HTMLElementType::INPUT && testClicked)
+		{
+			active = element;
+			lastTouched = element;
+			return true;
+		}
+
+		if(testClicked)
+			for (int i = element->children.size() - 1; i >= 0; i--)
+			{
+				if (HandleHTMLMouseDown(element->children.at(i), x, y))
+					return true;
+			}
+
+		bool bGClick = BLIB::KeyPointerPair::GetKeyValuePointer(element->attributes, "bGClick") != NULL;
+		if (testClicked && bGClick)
+		{
+			lastTouched = element;
+			return true;
+		}
+
 		return false;
 	}
 
 	bool HandleHTMLClick(BLIB::HTMLElement* element, int x, int y)
 	{
-
-		//Have to check if its scroll bar first.
-		/*if (OnHorizontalScrollbar(element, x, y))
-		{
-			active = element;
-			element->scrollYSelected = false;
-			element->scrollXSelected = true;
-			element->scrollStartX = x;
-			element->scrollStartY = y;
-			return true;
-		}
-
-		if (OnVerticalScrollbar(element, x, y))
-		{
-			active = element;
-			element->scrollYSelected = true;
-			element->scrollXSelected = false;
-			element->scrollStartX = x;
-			element->scrollStartY = y;
-			return true;
-		}*/
 
 		for (int i = element->children.size() - 1; i >= 0; i--)
 		{
@@ -1304,7 +1297,7 @@ class BGraph
 				return true;
 		}
 
-		if (TestCoordinates(element, x, y))
+		if (TestCoordinates(element, x, y) && lastTouched == element)
 		{
 			if (element == active && active->inputType == BLIB::HTMLInputType::CHECKBOX)
 			{
@@ -1443,6 +1436,7 @@ public:
 
 	void HandleMouseDown(int x, int y)
 	{
+		lastTouched = NULL;
 		HandleHTMLMouseDown(current, x, y);
 	}
 
@@ -1866,9 +1860,6 @@ public:
 			}
 		}
 
-		float finalChildX = 0;
-		float finalChildY = 0;
-
 		float elementScLeft = (element->x + element->bTl);
 		float elementScRight = (element->x + element->actualWidth) - element->bTr;
 		float elementScTop = (element->y + element->bTt);
@@ -1887,51 +1878,12 @@ public:
 
 			BLIB::HTMLElement* chld = element->children.at(i);
 			DrawHTML(chld, device, cL, dData, sc);
-
-			if (element->overflowHandling == BLIB::HTMLOverflow::AUTO)
-			{
-				float overallX = BLIB::HTMLElement::GetElementOverallWidth(chld) + (chld->x - chld->ml);
-				float overallY = BLIB::HTMLElement::GetElementOverallHeight(chld) + (chld->y - chld->mt);
-				if (finalChildX < overallX)
-					finalChildX = overallX;
-				if (finalChildY < overallY)
-					finalChildY = overallY;
-			}
 		}
 
-		if (element->widthScaling != BLIB::HTMLScaling::FIT_CONTENT && element->overflowHandling == BLIB::HTMLOverflow::AUTO)
-		{
-			float widthChildren = finalChildX - (element->x + element->pl + element->bTl);
-			if (widthChildren > 0)
-			{
-				if (element->scrollBarScaleXDirty)
-				{
-					float elementWidth = BLIB::HTMLElement::GetElementContentWidth(element);
-					element->scrollBarScaleX = elementWidth / widthChildren;
-					element->scrollBarScaleXDirty = !element->scrollBarScaleXDirty;
-					element->scrollBarShiftScaleX = ((widthChildren - elementWidth)) / (element->actualWidth - (((element->actualWidth - element->scrollSpacing)) * element->scrollBarScaleX));
-				}
-				if (element->scrollBarScaleX < 1.0f)
-					DrawHorizontalScrollbar(element, device, cL, dData);
-			}
-		}
-
-		if (element->heightScaling != BLIB::HTMLScaling::FIT_CONTENT && element->overflowHandling == BLIB::HTMLOverflow::AUTO)
-		{
-			float heightChildren = finalChildY - (element->y + element->pt + element->bTt);
-			if (heightChildren > 0)
-			{
-				if (element->scrollBarScaleYDirty)
-				{
-					float elementHeight = BLIB::HTMLElement::GetElementContentHeight(element);
-					element->scrollBarScaleY = elementHeight / heightChildren;
-					element->scrollBarScaleYDirty = !element->scrollBarScaleYDirty;
-					element->scrollBarShiftScaleY = ((heightChildren - elementHeight)) / (element->actualHeight - (((element->actualHeight - element->scrollSpacing)) * element->scrollBarScaleY));
-				}
-				if (element->scrollBarScaleY < 1.0f)
-					DrawVerticleScrollbar(element, device, cL, dData);
-			}
-		}
+		if (element->scrollBarScaleX < 1.0f)
+			DrawHorizontalScrollbar(element, device, cL, dData);
+		if (element->scrollBarScaleY < 1.0f)
+			DrawVerticleScrollbar(element, device, cL, dData);
 
 		if ((element->overflowHandling == BLIB::HTMLOverflow::AUTO || element->overflowHandling == BLIB::HTMLOverflow::HIDDEN) && element->children.size() > 0)
 		{
