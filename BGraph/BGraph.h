@@ -1078,6 +1078,7 @@ class BGraph
 	BLIB::PointerList* functions = new BLIB::PointerList();	//name and fn*
 	BLIB::PointerList* pages = new BLIB::PointerList();		//name and json
 	BLIB::JSONElement* variables = new BLIB::JSONElement();
+	BLIB::PointerList* components = new BLIB::PointerList();
 
 	BLIB::PointerList* root = new BLIB::PointerList();
 	BLIB::HTMLElement* current = NULL;
@@ -1976,11 +1977,42 @@ public:
 		element->width = width;
 		element->height = height;
 
-		BLIB::HTMLParser::ResolveDynamicHTML(element, variables);
+		GetComponents(element);
+		BLIB::HTMLParser::ResolveDynamicHTML(element, variables, components);
+		UpdateElementValues(element);
 		BLIB::HTMLParser::ResolveHTML(element, variables);
 
 		BLIB::KeyPointerPair* kpp = new BLIB::KeyPointerPair(name, element);
 		this->root->AddPointer(kpp);
+	}
+
+	void GetComponents(BLIB::HTMLElement* element)
+	{
+		if (element->tag != NULL)
+		{
+			char* fileName = BLIB::Strings::Concat(element->tag, ".html");
+
+			BLIB::KeyPointerPair* found = BLIB::KeyPointerPair::GetKeyValuePointer(components, element->tag);
+			if (found == NULL)
+			{
+				if (BLIB::Files::FileExists(fileName))
+				{
+					BLIB::DBuffer* file = BLIB::Files::ReadFile(fileName);
+					file->Add((uint8_t)0);
+					BLIB::HTMLElement* newelement = BLIB::HTMLParser::Parse((char*)file->DataPointer(0));
+					BLIB::HTMLElement* child = newelement->children.at(newelement->children.size()-1);
+					newelement->children.pop_back();
+					components->AddPointer(new BLIB::KeyPointerPair(BLIB::Strings::Clone(element->tag), child));
+					delete newelement;
+					free(file);
+				}
+			}
+
+			free(fileName);
+		}
+
+		for (int i = 0; i < element->children.size(); i++)
+			GetComponents(element->children.at(i));
 	}
 
 	void SetVariable(const char* name, const char* json, bool allowRefresh = true)
@@ -2176,7 +2208,7 @@ public:
 	void Refresh()
 	{
 		BLIB::HTMLElement::HTMLInvalidateAll(current);
-		BLIB::HTMLParser::ResolveDynamicHTML(current, variables);
+		BLIB::HTMLParser::ResolveDynamicHTML(current, variables, components);
 		UpdateElementValues(current);
 		BLIB::HTMLParser::ResolveHTML(current, variables);
 	}
@@ -2195,6 +2227,7 @@ public:
 			img->resource->Release();
 			img->upload->Release();
 			delete img;
+			delete kpp;
 		}
 		dData->modelTextures->FreeEverything();
 		delete dData->modelTextures;
@@ -2212,6 +2245,7 @@ public:
 			BLIB::HTMLElement* element = (BLIB::HTMLElement*)page->pointer;
 			delete element;
 			free(page->key);
+			delete page;
 		}
 
 		for (int i = 0; i < functions->count; i++)
@@ -2219,27 +2253,31 @@ public:
 			BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)functions->items[i];
 			free(kpp->key);
 			// Not Freeing the function pointers.
+			delete kpp;
 		}
 		for (int i = 0; i < pages->count; i++)
 		{
 			BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)pages->items[i];
 			free(kpp->key);
-			free(kpp->pointer); // this is a char* so deconstructor not needed
+			free(kpp->pointer); 
+			delete kpp;
 		}
-		//for (int i = 0; i < variables->count; i++)
-		//{
-		//	BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)variables->items[i];
-		//	free(kpp->key);
-		//	free(kpp->pointer); // this is a char* so deconstructor not needed
-		//}
+		for (int i = 0; i < components->count; i++)
+		{
+			BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)components->items[i];
+			free(kpp->key);
+			BLIB::HTMLElement* element = (BLIB::HTMLElement*)kpp->pointer;
+			delete element;
+			delete kpp;
+		}
 
 		delete root;
 
-		functions->FreeEverything();
-		pages->FreeEverything();
-		//variables->FreeEverything();
+		//functions->FreeEverything();
+		//pages->FreeEverything();
 		delete functions;
 		delete pages;
 		delete variables;
+		delete components;
 	}
 };
