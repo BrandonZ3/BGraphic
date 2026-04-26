@@ -1979,7 +1979,7 @@ public:
 
 		GetComponents(element);
 		BLIB::HTMLParser::ResolveDynamicHTML(element, variables, components);
-		UpdateElementValues(element);
+		BLIB::HTMLParser::UpdateElementValues(element, variables);
 		BLIB::HTMLParser::ResolveHTML(element, variables);
 
 		BLIB::KeyPointerPair* kpp = new BLIB::KeyPointerPair(name, element);
@@ -2048,65 +2048,6 @@ public:
 		if (var != NULL)
 			return (char*)var->value;
 		return NULL;
-	}
-
-	void UpdateElementValues(BLIB::HTMLElement* element)
-	{
-		if (element->type == BLIB::HTMLElementType::INPUT)
-		{
-			for (int i = 0; i < element->attributes->count; i++)
-			{
-				BLIB::KeyPointerPair* pair = (BLIB::KeyPointerPair*)element->attributes->items[i];
-				if (BLIB::Strings::CompareCaseInsensitive(pair->key, "value"))
-				{
-					switch (element->inputType)
-					{
-						case(BLIB::HTMLInputType::CHECKBOX):
-						{
-							char* val = BLIB::HTMLElement::HTMLStringInterpolate((char*)pair->pointer, variables);
-							if (val != NULL)
-							{
-								if (BLIB::Strings::CompareCaseInsensitive(val, "true") && !element->checked)
-								{
-									element->checked = !element->checked;
-									element->bGr = 255 - element->bGr;
-									element->bGg = 255 - element->bGg;
-									element->bGb = 255 - element->bGb;
-								}
-
-								free(val);
-							}
-							break;
-						}
-						case(BLIB::HTMLInputType::TEXTAREA):
-						case(BLIB::HTMLInputType::TEXT):
-						{
-							char* val = BLIB::HTMLElement::HTMLStringInterpolate((char*)pair->pointer, variables);
-							if (val != NULL)
-							{
-								int valLength = BLIB::Strings::Length(val);
-								element->characters.clear();
-
-								for (int x = 0; x < valLength; x++)
-								{
-									BLIB::HTMLTextCharacter c;
-									c.character = BLIB::Keyboard::TranslateKeyboardToHTMLTextChar(val[x]);
-									element->characters.push_back(c);
-								}
-								element->textDirty = true;
-								free(val);
-							}
-							break;
-						}
-					}
-				}
-			}
-		}
-
-		for (int i = 0; i < element->children.size(); i++)
-		{
-			UpdateElementValues(element->children.at(i));
-		}
 	}
 
 	void UpdatePageResolution(int width, int height)
@@ -2209,7 +2150,7 @@ public:
 	{
 		BLIB::HTMLElement::HTMLInvalidateAll(current);
 		BLIB::HTMLParser::ResolveDynamicHTML(current, variables, components);
-		UpdateElementValues(current);
+		BLIB::HTMLParser::UpdateElementValues(current, variables);
 		BLIB::HTMLParser::ResolveHTML(current, variables);
 	}
 
