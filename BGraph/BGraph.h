@@ -17,8 +17,8 @@ cbuffer Matrices : register(b0)
     float cg;
     float cb;
     float ca;
-    int width;
-    int height;
+    float width;
+    float height;
     float bGr;
     float bGg;
     float bGb;
@@ -130,8 +130,8 @@ cbuffer Matrices : register(b0)
     float cg;
     float cb;
     float ca;
-    int width;
-    int height;
+    float width;
+    float height;
     float bGr;
     float bGg;
     float bGb;
@@ -194,6 +194,8 @@ float4 PSMain(PSInput input) : SV_TARGET
     {
         float ypos = y; //- (actualHeight / 2);
         float xpos = x; // - (actualWidth / 2);
+		/*ypos = ceil(ypos);
+		xpos = ceil(xpos);*/
     
         float4 bordercolor = float4(blr, blg, blb, bla);
     
@@ -366,12 +368,12 @@ const char* htmlPixelShaderPT2 = R"(
         if (bTl > 0)
         {
         
-            if ((input.position.x > xpos && input.position.x < xpos + bTl && input.position.y > ypos + bTt && input.position.y < ypos + height - bTb))
+            if ((input.position.x >= xpos && input.position.x <= xpos + bTl && input.position.y >= ypos + bTt && input.position.y <= ypos + height - bTb))
             {
                 return bordercolorleft;
             }
         
-            if ((input.position.x > xpos && input.position.x < xpos + bTl && input.position.y < ypos + bTt))
+            if ((input.position.x >= xpos && input.position.x <= xpos + bTl && input.position.y <= ypos + bTt))
             {
                 float x0 = xpos;
                 float y0 = ypos;
@@ -391,7 +393,7 @@ const char* htmlPixelShaderPT2 = R"(
                     return bordercolorleft;
             }
         
-            if ((input.position.x > xpos && input.position.x < xpos + bTl && input.position.y > ypos + height - bTb))
+            if ((input.position.x >= xpos && input.position.x < xpos + bTl && input.position.y >= ypos + height - bTb))
             {            
                 float x0 = xpos;
                 float y0 = ypos + height;
@@ -415,12 +417,12 @@ const char* htmlPixelShaderPT2 = R"(
         if (bTt > 0)
         {
         
-            if ((input.position.y > ypos && input.position.y < ypos + bTt && input.position.x > xpos + bTl && input.position.x < xpos + width - bTr))
+            if ((input.position.y >= ypos && input.position.y <= ypos + bTt && input.position.x >= xpos + bTl && input.position.x <= xpos + width - bTr))
             {
                 return bordercolortop;
             }
         
-            if ((input.position.y > ypos && input.position.y < ypos + bTt && input.position.x < xpos + bTl))
+            if ((input.position.y >= ypos && input.position.y <= ypos + bTt && input.position.x <= xpos + bTl))
             {
                 float x0 = xpos + bTl;
                 float y0 = ypos + bTt;
@@ -440,7 +442,7 @@ const char* htmlPixelShaderPT2 = R"(
                     return bordercolortop;
             }
         
-            if ((input.position.y > ypos && input.position.y < ypos + bTt && input.position.x > xpos + width - bTr))
+            if ((input.position.y >= ypos && input.position.y <= ypos + bTt && input.position.x >= xpos + width - bTr))
             {
                 float x0 = xpos + width;
                 float y0 = ypos;
@@ -464,7 +466,7 @@ const char* htmlPixelShaderPT2 = R"(
         if (bTr > 0)
         {
         
-            if ((input.position.x < xpos + width && input.position.x > xpos + width - bTr && input.position.y > ypos + bTt && input.position.y < ypos + height - bTb))
+            if ((input.position.x <= xpos + width && input.position.x >= xpos + width - bTr && input.position.y >= ypos + bTt && input.position.y <= ypos + height - bTb))
             {
                 return bordercolorright;
             }
@@ -489,7 +491,7 @@ const char* htmlPixelShaderPT2 = R"(
                     return bordercolorright;
             }
         
-            if ((input.position.x < xpos + width && input.position.x > xpos + width - bTr && input.position.y > ypos + height - bTb))
+            if ((input.position.x <= xpos + width && input.position.x >= xpos + width - bTr && input.position.y >= ypos + height - bTb))
             {
                 float x0 = xpos + width;
                 float y0 = ypos + height - bTb;
@@ -513,12 +515,12 @@ const char* htmlPixelShaderPT2 = R"(
     
         if (bTb > 0)
         {
-            if ((input.position.y < ypos + height && input.position.y > ypos + height - bTb && input.position.x > xpos + bTl && input.position.x < xpos + width - bTr))
+            if ((input.position.y <= ypos + height && input.position.y >= ypos + height - bTb && input.position.x >= xpos + bTl && input.position.x <= xpos + width - bTr))
             {
                 return bordercolorbottom;
             }
         
-            if ((input.position.y < ypos + height && input.position.y > ypos + height - bTb && input.position.x < xpos + bTl))
+            if ((input.position.y <= ypos + height && input.position.y >= ypos + height - bTb && input.position.x <= xpos + bTl))
             {
                 float x0 = xpos;
                 float y0 = ypos + height;
@@ -538,7 +540,7 @@ const char* htmlPixelShaderPT2 = R"(
                     return bordercolorbottom;
             }
         
-            if ((input.position.y < ypos + height && input.position.y > ypos + height - bTb && input.position.x > xpos + width - bTr))
+            if ((input.position.y <= ypos + height && input.position.y >= ypos + height - bTb && input.position.x >= xpos + width - bTr))
             {
                 float x0 = xpos + width - bTr;
                 float y0 = ypos + height - bTb;
@@ -704,8 +706,8 @@ public:
 	int renderWidth;
 	int renderHeight;
 	float color[4];
-	int width;
-	int height;
+	float width;
+	float height;
 	float backgroundColor[4];
 	int borderRadius[4];
 	int bools; //bit 0 is display flex, bit 1 is flex row/column
@@ -1156,6 +1158,39 @@ class BGraph
 		Refresh();
 	}
 
+	bool HandleHTMLScroll(BLIB::HTMLElement* element, int x, int y, int scroll, bool shift, bool control)
+	{
+
+		for (int i = element->children.size() - 1; i >= 0; i--)
+		{
+			if (HandleHTMLScroll(element->children.at(i), x, y, scroll, shift, control))
+				return true;
+		}
+
+		bool testDetected = TestCoordinates(element, x, y);
+
+		if (!element->scrollBarScaleXDirty && testDetected && shift)
+		{
+			float width = element->actualWidth - (element->actualWidth * element->scrollBarScaleX);
+			float toScroll = (width * 0.05) * scroll;
+			ScrollChangeAdapterX(element, &toScroll);
+			for (int i = 0; i < element->children.size(); i++)
+				BLIB::HTMLElement::ApplyScrolling(toScroll * element->scrollBarShiftScaleX, 0, element->children.at(i));
+			return true;
+		}
+		else if (!element->scrollBarScaleYDirty && testDetected )
+		{
+			float height = element->actualHeight - (element->actualHeight * element->scrollBarScaleY);
+			float toScroll = (height * 0.05) * scroll;
+			ScrollChangeAdapterY(element, &toScroll);
+			for (int i = 0; i < element->children.size(); i++)
+				BLIB::HTMLElement::ApplyScrolling(0, toScroll * element->scrollBarShiftScaleY, element->children.at(i));
+			return true;
+		}
+
+		return false;
+	}
+
 	bool HandleHTMLHover(BLIB::HTMLElement* element, int x, int y)
 	{
 		for (int i = element->children.size() - 1; i >= 0; i--)
@@ -1272,7 +1307,7 @@ class BGraph
 			return true;
 		}
 
-		if(testClicked)
+		if(testClicked || element->overflowHandling == BLIB::HTMLOverflow::VISIBLE) //Causes issues for absolute positioned children.
 			for (int i = element->children.size() - 1; i >= 0; i--)
 			{
 				if (HandleHTMLMouseDown(element->children.at(i), x, y))
@@ -1291,14 +1326,16 @@ class BGraph
 
 	bool HandleHTMLClick(BLIB::HTMLElement* element, int x, int y)
 	{
+		bool testClicked = TestCoordinates(element, x, y);
 
-		for (int i = element->children.size() - 1; i >= 0; i--)
-		{
-			if (HandleHTMLClick(element->children.at(i), x, y))
-				return true;
-		}
+		if (testClicked || element->overflowHandling == BLIB::HTMLOverflow::VISIBLE)//Causes issues for absolute positioned children.
+			for (int i = element->children.size() - 1; i >= 0; i--)
+			{
+				if (HandleHTMLClick(element->children.at(i), x, y))
+					return true;
+			}
 
-		if (TestCoordinates(element, x, y) && lastTouched == element)
+		if (testClicked && lastTouched == element)
 		{
 			if (element == active && active->inputType == BLIB::HTMLInputType::CHECKBOX)
 			{
@@ -1430,6 +1467,11 @@ public:
 		}
 	}
 
+	bool HandleScroll(int x, int y, int scroll, bool shift, bool control)
+	{
+		return HandleHTMLScroll(current, x, y, scroll, shift, control);
+	}
+
 	void HandleClick(int x, int y)
 	{
 		HandleHTMLClick(current, x, y);
@@ -1456,58 +1498,14 @@ public:
 			{
 				diffX = x - active->scrollStartX;
 				active->scrollStartX = x;
-				if (active->scrollPosX + diffX <= active->actualWidth - (((active->actualWidth - active->scrollSpacing)) * active->scrollBarScaleX))
-				{
-					if(active->scrollPosX + diffX >= 0)
-						active->scrollPosX += diffX;
-					else
-					{
-						diffX = 0 - active->scrollPosX;
-						if (diffX > -0.001)
-							diffX = 0;
-						active->scrollPosX += diffX;
-					}
-				}
-				else
-				{
-					diffX = 0;
-					double val = (active->actualWidth - (((active->actualWidth - active->scrollSpacing)) * active->scrollBarScaleX)) - active->scrollPosX;
-					diffX = val;
-
-					if (diffX < 0.001)
-						diffX = 0;
-
-					active->scrollPosX += diffX;
-				}
+				ScrollChangeAdapterX(active, &diffX);
 			}
 
 			if (active->scrollYSelected)
 			{
 				diffY = y - active->scrollStartY;
 				active->scrollStartY = y;
-				if (active->scrollPosY + diffY <= active->actualHeight - (((active->actualHeight - active->scrollSpacing)) * active->scrollBarScaleY))
-				{
-					if(active->scrollPosY + diffY >= 0)
-						active->scrollPosY += diffY;
-					else
-					{
-						diffY = 0 - active->scrollPosY;
-						if (diffY > -0.001)
-							diffY = 0;
-						active->scrollPosY += diffY;
-					}
-				}
-				else
-				{
-					diffY = 0;
-					double val = (active->actualHeight - (((active->actualHeight - active->scrollSpacing)) * active->scrollBarScaleY)) - active->scrollPosY;
-					diffY = val;
-
-					if (diffY < 0.001)
-						diffY = 0;
-
-					active->scrollPosY += diffY;
-				}
+				ScrollChangeAdapterY(active, &diffY);
 			}
 
 			for (int i = 0; i < active->children.size(); i++)
@@ -1517,6 +1515,60 @@ public:
 		}
 
 		HandleHTMLHover(current, x, y);
+	}
+
+	void ScrollChangeAdapterX(BLIB::HTMLElement* element, float* change)
+	{
+		if (element->scrollPosX + *change <= element->actualWidth - (((element->actualWidth - element->scrollSpacing)) * element->scrollBarScaleX))
+		{
+			if (element->scrollPosX + *change >= 0)
+				element->scrollPosX += *change;
+			else
+			{
+				*change = 0 - element->scrollPosX;
+				if (*change > -0.001)
+					*change = 0;
+				element->scrollPosX +=* change;
+			}
+		}
+		else
+		{
+			*change = 0;
+			double val = (element->actualWidth - (((element->actualWidth - element->scrollSpacing)) * element->scrollBarScaleX)) - element->scrollPosX;
+			*change = val;
+
+			if (*change < 0.001)
+				*change = 0;
+
+			element->scrollPosX += *change;
+		}
+	}
+
+	void ScrollChangeAdapterY(BLIB::HTMLElement* element, float* change)
+	{
+		if (element->scrollPosY + *change <= element->actualHeight - (((element->actualHeight - element->scrollSpacing)) * element->scrollBarScaleY))
+		{
+			if (element->scrollPosY + *change >= 0)
+				element->scrollPosY += *change;
+			else
+			{
+				*change = 0 - element->scrollPosY;
+				if (*change > -0.001)
+					*change = 0;
+				element->scrollPosY += *change;
+			}
+		}
+		else
+		{
+			*change = 0;
+			double val = (element->actualHeight - (((element->actualHeight - element->scrollSpacing)) * element->scrollBarScaleY)) - element->scrollPosY;
+			*change = val;
+
+			if (*change < 0.001)
+				*change = 0;
+
+			element->scrollPosY += *change;
+		}
 	}
 
 	void FindLinkedPages(BLIB::HTMLElement* element)
@@ -1770,6 +1822,16 @@ public:
 
 	void DrawHTML(BLIB::HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData, D3D12_RECT* sc)
 	{
+		if (element->parent != NULL) //what about absolute positioned items? their relative positioning parent must be the sc
+		{
+			BLIB::HTMLElement* scP = BLIB::HTMLElement::GetScissorParent(element);
+			sc->left = (scP->x + scP->bTl);
+			sc->top = (scP->y + scP->bTt);
+			sc->right = (scP->x + scP->actualWidth) - scP->bTr;
+			sc->bottom = (scP->y + scP->actualHeight) - scP->bTb;
+			cL->RSSetScissorRects(1, sc);
+		}
+
 		dData->tempSettings.bools = 0;
 		dData->tempSettings.backgroundColor[0] = element->bGr / 255.0f;
 		dData->tempSettings.backgroundColor[1] = element->bGg / 255.0f;
@@ -1861,38 +1923,15 @@ public:
 			}
 		}
 
-		float elementScLeft = (element->x + element->bTl);
-		float elementScRight = (element->x + element->actualWidth) - element->bTr;
-		float elementScTop = (element->y + element->bTt);
-		float elementScBottom = (element->y + element->actualHeight) - element->bTb;
-
-		for (int i = 0; i < element->children.size(); i++)
-		{
-			if (element->overflowHandling == BLIB::HTMLOverflow::AUTO || element->overflowHandling == BLIB::HTMLOverflow::HIDDEN)
-			{
-				sc->left = elementScLeft;
-				sc->right = elementScRight;
-				sc->top = elementScTop;
-				sc->bottom = elementScBottom;
-				cL->RSSetScissorRects(1, sc);
-			}
-
-			BLIB::HTMLElement* chld = element->children.at(i);
-			DrawHTML(chld, device, cL, dData, sc);
-		}
-
 		if (element->scrollBarScaleX < 1.0f)
 			DrawHorizontalScrollbar(element, device, cL, dData);
 		if (element->scrollBarScaleY < 1.0f)
 			DrawVerticleScrollbar(element, device, cL, dData);
 
-		if ((element->overflowHandling == BLIB::HTMLOverflow::AUTO || element->overflowHandling == BLIB::HTMLOverflow::HIDDEN) && element->children.size() > 0)
+		for (int i = 0; i < element->children.size(); i++)
 		{
-			sc->left = elementScLeft;
-			sc->right = elementScRight;
-			sc->top = elementScTop;
-			sc->bottom = elementScBottom;
-			cL->RSSetScissorRects(1, sc);
+			BLIB::HTMLElement* chld = element->children.at(i);
+			DrawHTML(chld, device, cL, dData, sc);
 		}
 	}
 
