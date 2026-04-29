@@ -1175,7 +1175,7 @@ class BGraph
 			float toScroll = (width * 0.05) * scroll;
 			ScrollChangeAdapterX(element, &toScroll);
 			for (int i = 0; i < element->children.size(); i++)
-				BLIB::HTMLElement::ApplyScrolling(toScroll * element->scrollBarShiftScaleX, 0, element->children.at(i));
+				BLIB::HTMLElement::ApplyScrolling(toScroll * element->scrollBarShiftScaleX, 0, element->children.at(i), element);
 			return true;
 		}
 		else if (!element->scrollBarScaleYDirty && testDetected )
@@ -1184,25 +1184,34 @@ class BGraph
 			float toScroll = (height * 0.05) * scroll;
 			ScrollChangeAdapterY(element, &toScroll);
 			for (int i = 0; i < element->children.size(); i++)
-				BLIB::HTMLElement::ApplyScrolling(0, toScroll * element->scrollBarShiftScaleY, element->children.at(i));
+				BLIB::HTMLElement::ApplyScrolling(0, toScroll * element->scrollBarShiftScaleY, element->children.at(i), element);
 			return true;
 		}
 
 		return false;
 	}
 
-	bool HandleHTMLHover(BLIB::HTMLElement* element, int x, int y)
+	bool HandleHTMLHover(BLIB::HTMLElement* element, int x, int y, bool allowPositive)
 	{
+		bool bypassAllowPositive = false;
+		bool testHovered = TestCoordinates(element, x, y);
+
 		for (int i = element->children.size() - 1; i >= 0; i--)
 		{
-			if (HandleHTMLHover(element->children.at(i), x, y))
+			if (HandleHTMLHover(element->children.at(i), x, y, testHovered || element->overflowHandling == BLIB::HTMLOverflow::VISIBLE))
 				return true;
+		}
+
+		if (element->position == BLIB::HTMLElementPosition::POS_ABSOLUTE)
+		{
+			BLIB::HTMLElement* ref = BLIB::HTMLElement::GetPositionReferableParent(element);
+			bypassAllowPositive = TestCoordinates(ref, x, y);
 		}
 
 		BLIB::KeyPointerPair* value = BLIB::KeyPointerPair::GetKeyValuePointer(element->attributes, "bGHover");
 		if (value != NULL)
 		{
-			if (TestCoordinates(element, x, y))
+			if (testHovered && (allowPositive || bypassAllowPositive))
 			{
 				element->hover = true;
 
@@ -1268,9 +1277,17 @@ class BGraph
 		return true;
 	}
 
-	bool HandleHTMLMouseDown(BLIB::HTMLElement* element, int x, int y)
+	bool HandleHTMLMouseDown(BLIB::HTMLElement* element, int x, int y, bool allowPositive)
 	{
+		bool bypassAllowPositive = false;
 		bool testClicked = TestCoordinates(element, x, y);
+
+		if (element->position == BLIB::HTMLElementPosition::POS_ABSOLUTE)
+		{
+			BLIB::HTMLElement* ref = BLIB::HTMLElement::GetPositionReferableParent(element);
+			bypassAllowPositive = TestCoordinates(ref, x, y);
+		}
+
 		//Have to check if its scroll bar first.
 		if (element->overflowHandling == BLIB::HTMLOverflow::AUTO && element->scrollBarScaleX < 1.0f && OnHorizontalScrollbar(element, x, y))
 		{
@@ -1300,22 +1317,21 @@ class BGraph
 			return true;
 		}
 
-		if (element->type == BLIB::HTMLElementType::INPUT && testClicked)
+		if (element->type == BLIB::HTMLElementType::INPUT && testClicked && (allowPositive || bypassAllowPositive))
 		{
 			active = element;
 			lastTouched = element;
 			return true;
 		}
 
-		if(testClicked || element->overflowHandling == BLIB::HTMLOverflow::VISIBLE) //Causes issues for absolute positioned children.
-			for (int i = element->children.size() - 1; i >= 0; i--)
-			{
-				if (HandleHTMLMouseDown(element->children.at(i), x, y))
-					return true;
-			}
+		for (int i = element->children.size() - 1; i >= 0; i--)
+		{
+			if (HandleHTMLMouseDown(element->children.at(i), x, y, testClicked || element->overflowHandling == BLIB::HTMLOverflow::VISIBLE))
+				return true;
+		}
 
 		bool bGClick = BLIB::KeyPointerPair::GetKeyValuePointer(element->attributes, "bGClick") != NULL;
-		if (testClicked && bGClick)
+		if (testClicked && (allowPositive || bypassAllowPositive) && bGClick)
 		{
 			lastTouched = element;
 			return true;
@@ -1324,18 +1340,24 @@ class BGraph
 		return false;
 	}
 
-	bool HandleHTMLClick(BLIB::HTMLElement* element, int x, int y)
+	bool HandleHTMLClick(BLIB::HTMLElement* element, int x, int y, bool allowPositive)
 	{
+		bool bypassAllowPositive = false;
 		bool testClicked = TestCoordinates(element, x, y);
 
-		if (testClicked || element->overflowHandling == BLIB::HTMLOverflow::VISIBLE)//Causes issues for absolute positioned children.
-			for (int i = element->children.size() - 1; i >= 0; i--)
-			{
-				if (HandleHTMLClick(element->children.at(i), x, y))
-					return true;
-			}
+		if (element->position == BLIB::HTMLElementPosition::POS_ABSOLUTE)
+		{
+			BLIB::HTMLElement* ref = BLIB::HTMLElement::GetPositionReferableParent(element);
+			bypassAllowPositive = TestCoordinates(ref, x, y);
+		}
 
-		if (testClicked && lastTouched == element)
+		for (int i = element->children.size() - 1; i >= 0; i--)
+		{
+			if (HandleHTMLClick(element->children.at(i), x, y, testClicked || element->overflowHandling == BLIB::HTMLOverflow::VISIBLE))
+				return true;
+		}
+
+		if (testClicked && (allowPositive || bypassAllowPositive) && lastTouched == element)
 		{
 			if (element == active && active->inputType == BLIB::HTMLInputType::CHECKBOX)
 			{
@@ -1343,6 +1365,25 @@ class BGraph
 				active->bGr = 255 - active->bGr;
 				active->bGg = 255 - active->bGg;
 				active->bGb = 255 - active->bGb;
+
+
+				BLIB::KeyPointerPair* val = BLIB::KeyPointerPair::GetKeyValuePointer(active->attributes, "value");
+
+				if (val != NULL && BLIB::Strings::Contains((char*)val->pointer, "{{"))
+				{
+					char* varName = BLIB::Strings::Replace((char*)val->pointer, "{{", "");
+					BLIB::Strings::FreeAndAssign(&varName, BLIB::Strings::Replace(varName, "}}", ""));
+					BLIB::Strings::FreeAndAssign(&varName, BLIB::Strings::Trim(varName));
+
+					if (active->checked)
+						SetVariable(varName, "false", true);
+					else
+						SetVariable(varName, "false", true);
+
+					free(varName);
+				}
+
+
 				return true;
 			}
 
@@ -1460,6 +1501,7 @@ public:
 
 					SetVariable(varName, newString, false);//This is not gonna work for nested json
 
+					free(newString);
 					free(varName);
 				}
 				Refresh();
@@ -1474,13 +1516,13 @@ public:
 
 	void HandleClick(int x, int y)
 	{
-		HandleHTMLClick(current, x, y);
+		HandleHTMLClick(current, x, y, true);
 	}
 
 	void HandleMouseDown(int x, int y)
 	{
 		lastTouched = NULL;
-		HandleHTMLMouseDown(current, x, y);
+		HandleHTMLMouseDown(current, x, y, true);
 	}
 
 	void HandleMouseUp(int x, int y)
@@ -1509,12 +1551,12 @@ public:
 			}
 
 			for (int i = 0; i < active->children.size(); i++)
-				BLIB::HTMLElement::ApplyScrolling(diffX * active->scrollBarShiftScaleX, diffY * active->scrollBarShiftScaleY, active->children.at(i));
+				BLIB::HTMLElement::ApplyScrolling(diffX * active->scrollBarShiftScaleX, diffY * active->scrollBarShiftScaleY, active->children.at(i), active);
 
 			return;
 		}
 
-		HandleHTMLHover(current, x, y);
+		HandleHTMLHover(current, x, y, true);
 	}
 
 	void ScrollChangeAdapterX(BLIB::HTMLElement* element, float* change)
@@ -1824,7 +1866,16 @@ public:
 	{
 		if (element->parent != NULL) //what about absolute positioned items? their relative positioning parent must be the sc
 		{
-			BLIB::HTMLElement* scP = BLIB::HTMLElement::GetScissorParent(element);
+			BLIB::HTMLElement* scP = NULL;
+			if (element->position == BLIB::HTMLElementPosition::POS_ABSOLUTE)
+			{
+				scP = BLIB::HTMLElement::GetPositionReferableParent(element);
+				scP = BLIB::HTMLElement::GetScissorParent(scP->children.at(0));
+			}
+			else
+			{
+				scP = BLIB::HTMLElement::GetScissorParent(element);
+			}
 			sc->left = (scP->x + scP->bTl);
 			sc->top = (scP->y + scP->bTt);
 			sc->right = (scP->x + scP->actualWidth) - scP->bTr;
