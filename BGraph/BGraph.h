@@ -1081,6 +1081,7 @@ class BGraph
 	BLIB::PointerList* pages = new BLIB::PointerList();		//name and json
 	BLIB::JSONElement* variables = new BLIB::JSONElement();
 	BLIB::PointerList* components = new BLIB::PointerList();
+	BLIB::PointerList* changedVariables = new BLIB::PointerList();
 
 	BLIB::PointerList* root = new BLIB::PointerList();
 	BLIB::HTMLElement* current = NULL;
@@ -1379,8 +1380,8 @@ class BGraph
 						SetVariable(varName, "false", true);
 					else
 						SetVariable(varName, "false", true);
-
-					free(varName);
+					
+					changedVariables->AddPointer(varName);//free(varName);
 				}
 
 
@@ -1406,6 +1407,7 @@ class BGraph
 				if (clickargs->count == 3 && BLIB::Strings::Compare((char*)clickargs->items[0], "bGSet"))
 				{
 					bGSet(element, (char*)clickargs->items[1], (char*)clickargs->items[2]);
+					changedVariables->AddPointer(BLIB::Strings::Clone((char*)clickargs->items[1]));
 				}
 
 				clickargs->FreeEverything();
@@ -1557,6 +1559,38 @@ public:
 		}
 
 		HandleHTMLHover(current, x, y, true);
+	}
+
+	BLIB::PointerList* GetChangedVariables()
+	{
+		BLIB::PointerList* output = new BLIB::PointerList();
+		for (int i = 0; i < changedVariables->count; i++)
+		{
+			output->AddPointer(BLIB::Strings::Clone((char*)changedVariables->items[i]));
+		}
+		return output;
+	}
+
+	void ClearChangedVariables()
+	{
+		for (int i = 0; i < changedVariables->count; i++)
+			free(changedVariables->items[i]);
+		while(changedVariables->count > 0)
+			changedVariables->RemovePointer(0);
+	}
+
+	void DeleteVariable(char* variableName)
+	{
+		BLIB::JSONElement* element = BLIB::JSONElement::GetElement(variableName, variables, false);
+		BLIB::JSONElement* parent = element->parent;
+		for (int i = 0; i < parent->children->count; i++)
+		{
+			if (parent->children->items[i] == element)
+			{
+				parent->children->RemovePointer(i);
+				delete element;
+			}
+		}
 	}
 
 	void ScrollChangeAdapterX(BLIB::HTMLElement* element, float* change)
@@ -1864,9 +1898,9 @@ public:
 
 	void DrawHTML(BLIB::HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData, D3D12_RECT* sc)
 	{
+		BLIB::HTMLElement* scP = NULL;
 		if (element->parent != NULL) //what about absolute positioned items? their relative positioning parent must be the sc
 		{
-			BLIB::HTMLElement* scP = NULL;
 			if (element->position == BLIB::HTMLElementPosition::POS_ABSOLUTE)
 			{
 				scP = BLIB::HTMLElement::GetPositionReferableParent(element);
@@ -1954,6 +1988,12 @@ public:
 		int charsize = element->characters.size();
 		if (charsize > 0)
 		{
+			sc->left = (element->x + element->bTl);
+			sc->top = (element->y + element->bTt);
+			sc->right = (element->x + element->actualWidth) - element->bTr;
+			sc->bottom = (element->y + element->actualHeight) - element->bTb;
+			cL->RSSetScissorRects(1, sc);
+
 			BLIB::KeyPointerPair* kpp = BLIB::KeyPointerPair::GetKeyValuePointer(dData->modelTextures, textTextureLocation);
 			ImageStorage* imS = (ImageStorage*)kpp->pointer;
 			D3D12_GPU_DESCRIPTOR_HANDLE hnd = dData->textureHeap->GetGPUDescriptorHandleForHeapStart();
@@ -1971,6 +2011,15 @@ public:
 				dData->tempSettings.x = element->characters.at(i).x;
 				dData->tempSettings.y = element->characters.at(i).y;
 				dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, &hnd);
+			}
+
+			if (scP != NULL)
+			{
+				sc->left = (scP->x + scP->bTl);
+				sc->top = (scP->y + scP->bTt);
+				sc->right = (scP->x + scP->actualWidth) - scP->bTr;
+				sc->bottom = (scP->y + scP->actualHeight) - scP->bTb;
+				cL->RSSetScissorRects(1, sc);
 			}
 		}
 
@@ -2131,7 +2180,7 @@ public:
 			Refresh();
 	}
 
-	char* GetVariableValueReference(const char* name)
+	const char* GetVariableValueReference(const char* name)
 	{
 		BLIB::JSONElement* var = BLIB::JSONElement::GetElement(name, variables);
 
@@ -2260,7 +2309,7 @@ public:
 			delete img;
 			delete kpp;
 		}
-		dData->modelTextures->FreeEverything();
+		//dData->modelTextures->FreeEverything();
 		delete dData->modelTextures;
 
 		delete dData;
@@ -2310,5 +2359,7 @@ public:
 		delete pages;
 		delete variables;
 		delete components;
+		changedVariables->FreeEverything();
+		delete changedVariables;
 	}
 };
