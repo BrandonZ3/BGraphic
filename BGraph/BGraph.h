@@ -1106,6 +1106,8 @@ class BGraph
 		if (value != NULL)
 		{
 			current = (BLIB::HTMLElement*)value->pointer;
+			current->width = width;
+			current->height = height;
 			Refresh();
 		}
 	}
@@ -1888,6 +1890,8 @@ public:
 
 	void DrawPage(D3D12_VIEWPORT* vp, D3D12_RECT* sc)
 	{
+		ID3D12DescriptorHeap* heaps[] = { dData->textureHeap };
+		commandList->SetDescriptorHeaps(1, heaps);
 		commandList->SetPipelineState(this->dData->htmlModel->graphicsModule->pipeline);
 		commandList->SetGraphicsRootSignature(this->dData->htmlModel->graphicsModule->rootSignature);
 		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -2191,8 +2195,13 @@ public:
 
 	void UpdatePageResolution(int width, int height)
 	{
+		this->width = width;
+		this->height = height;
 		current->width = width;
 		current->height = height;
+		dData->tempSettings.renderWidth = width;
+		dData->tempSettings.renderHeight = height;
+		Refresh();
 	}
 
 	void DrawVerticleScrollbar(BLIB::HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData)
