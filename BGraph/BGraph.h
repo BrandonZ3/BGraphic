@@ -1,12 +1,19 @@
 #pragma once
-#include "../../CPP Lib/BLIB.h"
 //#define STB_IMAGE_IMPLEMENTATION	//These 2 lines should be included in the project that uses BGraph.
 //#include "stb_image.h"
 #include <d3d12.h>
 #include <d3dcompiler.h>
 #include <string>
+#include <vector>
 
-using namespace BLIB;
+#include "PointerList.h"
+#include "JSON.h"
+#include "HTML.h"
+#include "DBuffer.h"
+#include "KeyPointerPair.h"
+#include "Strings.h"
+#include "Keyboard.h"
+#include "Files.h"
 
 const char* htmlVectorShader = R"(
 
@@ -1291,7 +1298,7 @@ class BGraph
 			return true;
 		}
 
-		if (element->type == HTMLElementType::INPUT && testClicked && (allowPositive || bypassAllowPositive))
+		if (element->type == HTMLElementType::INP && testClicked && (allowPositive || bypassAllowPositive))
 		{
 			active = element;
 			lastTouched = element;
@@ -1424,7 +1431,7 @@ public:
 
 	void UpdateActiveKeys(DBuffer* keys)
 	{
-		if (active != NULL && keys != NULL && active->type == HTMLElementType::INPUT && active->inputType != HTMLInputType::CHECKBOX && active->inputType != HTMLInputType::RANGE)
+		if (active != NULL && keys != NULL && active->type == HTMLElementType::INP && active->inputType != HTMLInputType::CHECKBOX && active->inputType != HTMLInputType::RANGE)
 		{
 			unsigned char* keysPointer = keys->DataPointer(0);
 			for (int i = 0; i < keys->count; i++)
