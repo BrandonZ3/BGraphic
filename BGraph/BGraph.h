@@ -6,6 +6,8 @@
 #include <d3dcompiler.h>
 #include <string>
 
+using namespace BLIB;
+
 const char* htmlVectorShader = R"(
 
 
@@ -1060,7 +1062,7 @@ class DrawingData
 {
 public:
 	GraphicsModel* htmlModel;
-	BLIB::PointerList* modelTextures = new BLIB::PointerList();
+	PointerList* modelTextures = new PointerList();
 	ID3D12DescriptorHeap* textureHeap;
 	int textureHeapCount = 0;
 	DrawSettings tempSettings;
@@ -1074,16 +1076,16 @@ class BGraph
 	int drawSettingSize = (sizeof(DrawSettings) / 4);
 	int textSettingSize = (sizeof(TextSettings) / 4);
 	std::vector<char*> files;	//name and fn*
-	BLIB::PointerList* functions = new BLIB::PointerList();	//name and fn*
-	BLIB::PointerList* pages = new BLIB::PointerList();		//name and json
-	BLIB::JSONElement* variables = new BLIB::JSONElement();
-	BLIB::PointerList* components = new BLIB::PointerList();
-	BLIB::PointerList* changedVariables = new BLIB::PointerList();
+	PointerList* functions = new PointerList();	//name and fn*
+	PointerList* pages = new PointerList();		//name and json
+	JSONElement* variables = new JSONElement();
+	PointerList* components = new PointerList();
+	PointerList* changedVariables = new PointerList();
 
-	BLIB::PointerList* root = new BLIB::PointerList();
-	BLIB::HTMLElement* current = NULL;
-	BLIB::HTMLElement* active = NULL;
-	BLIB::HTMLElement* lastTouched = NULL;
+	PointerList* root = new PointerList();
+	HTMLElement* current = NULL;
+	HTMLElement* active = NULL;
+	HTMLElement* lastTouched = NULL;
 
 	BGraph(BGraph&) = delete;
 	DrawingData* dData = new DrawingData();
@@ -1095,62 +1097,62 @@ class BGraph
 	int height;
 	int width;
 
-	BLIB::DBuffer* activeKeys = new BLIB::DBuffer();
+	DBuffer* activeKeys = new DBuffer();
 
 	void bGNavigate(const char* pageName)
 	{
-		BLIB::KeyPointerPair* value = BLIB::KeyPointerPair::GetKeyValuePointer(root, pageName);
+		KeyPointerPair* value = KeyPointerPair::GetKeyValuePointer(root, pageName);
 		if (value != NULL)
 		{
-			current = (BLIB::HTMLElement*)value->pointer;
+			current = (HTMLElement*)value->pointer;
 			current->width = width;
 			current->height = height;
 			Refresh();
 		}
 	}
 
-	void bGStyle(BLIB::HTMLElement* element, char* style)
+	void bGStyle(HTMLElement* element, char* style)
 	{
-		BLIB::HTMLParser::ParseStyling(style, element);
+		HTMLParser::ParseStyling(style, element);
 	}
 
-	void bGSet(BLIB::HTMLElement* element, const char* varname, const char* value)
+	void bGSet(HTMLElement* element, const char* varname, const char* value)
 	{
-		BLIB::JSONElement* var = BLIB::JSONElement::GetElement(varname, variables, true);
-		int valueLength = BLIB::Strings::Length(value);
+		JSONElement* var = JSONElement::GetElement(varname, variables, true);
+		int valueLength = Strings::Length(value);
 		if (value[0] == '*' && value[valueLength - 1] == '*')
 		{
-			char* refName = BLIB::Strings::Replace(value, "*", "");
-			BLIB::JSONElement* ref = BLIB::JSONElement::GetElement(refName, variables, true);
+			char* refName = Strings::Replace(value, "*", "");
+			JSONElement* ref = JSONElement::GetElement(refName, variables, true);
 
-			if (var->type != BLIB::JSONElementType::NONE)
+			if (var->type != JSONElementType::NONE)
 			{
 				delete var;
-				var = BLIB::JSONElement::GetElement(varname, variables, true);
-				BLIB::JSONElement::ConvertBlankToRenamedReference(var, varname, ref);
+				var = JSONElement::GetElement(varname, variables, true);
+				JSONElement::ConvertBlankToRenamedReference(var, varname, ref);
 			}
 			else
-				BLIB::JSONElement::ConvertBlankToRenamedReference(var, varname, ref);
+				JSONElement::ConvertBlankToRenamedReference(var, varname, ref);
 			free(refName);
 		}
 		else
 		{
 
-			if (var->type == BLIB::JSONElementType::NONE)
+			if (var->type == JSONElementType::NONE)
 			{
-				var->type = BLIB::JSONElementType::KVP;
+				var->type = JSONElementType::KVP;
 			}
 
 			if (var != NULL)
 			{
 				free(var->value);
-				var->value = BLIB::Strings::Clone(value);
+				var->value = Strings::Clone(value);
 			}
 			else
 			{
-				BLIB::JSONElement* newVar = new BLIB::JSONElement();
-				newVar->name = BLIB::Strings::Clone(varname);
-				newVar->value = BLIB::Strings::Clone(value);
+				JSONElement* newVar = new JSONElement();
+				newVar->name = Strings::Clone(varname);
+				newVar->value = Strings::Clone(value);
 				variables->children->AddPointer(newVar);
 			}
 		}
@@ -1158,7 +1160,7 @@ class BGraph
 		Refresh();
 	}
 
-	bool HandleHTMLScroll(BLIB::HTMLElement* element, int x, int y, int scroll, bool shift, bool control)
+	bool HandleHTMLScroll(HTMLElement* element, int x, int y, int scroll, bool shift, bool control)
 	{
 
 		for (int i = element->children.size() - 1; i >= 0; i--)
@@ -1175,7 +1177,7 @@ class BGraph
 			float toScroll = (width * 0.05) * scroll;
 			ScrollChangeAdapterX(element, &toScroll);
 			for (int i = 0; i < element->children.size(); i++)
-				BLIB::HTMLElement::ApplyScrolling(toScroll * element->scrollBarShiftScaleX, 0, element->children.at(i), element);
+				HTMLElement::ApplyScrolling(toScroll * element->scrollBarShiftScaleX, 0, element->children.at(i), element);
 			return true;
 		}
 		else if (!element->scrollBarScaleYDirty && testDetected )
@@ -1184,40 +1186,40 @@ class BGraph
 			float toScroll = (height * 0.05) * scroll;
 			ScrollChangeAdapterY(element, &toScroll);
 			for (int i = 0; i < element->children.size(); i++)
-				BLIB::HTMLElement::ApplyScrolling(0, toScroll * element->scrollBarShiftScaleY, element->children.at(i), element);
+				HTMLElement::ApplyScrolling(0, toScroll * element->scrollBarShiftScaleY, element->children.at(i), element);
 			return true;
 		}
 
 		return false;
 	}
 
-	bool HandleHTMLHover(BLIB::HTMLElement* element, int x, int y, bool allowPositive)
+	bool HandleHTMLHover(HTMLElement* element, int x, int y, bool allowPositive)
 	{
 		bool bypassAllowPositive = false;
 		bool testHovered = TestCoordinates(element, x, y);
 
 		for (int i = element->children.size() - 1; i >= 0; i--)
 		{
-			if (HandleHTMLHover(element->children.at(i), x, y, testHovered || element->overflowHandling == BLIB::HTMLOverflow::VISIBLE))
+			if (HandleHTMLHover(element->children.at(i), x, y, testHovered || element->overflowHandling == HTMLOverflow::VISIBLE))
 				return true;
 		}
 
-		if (element->position == BLIB::HTMLElementPosition::POS_ABSOLUTE)
+		if (element->position == HTMLElementPosition::POS_ABSOLUTE)
 		{
-			BLIB::HTMLElement* ref = BLIB::HTMLElement::GetPositionReferableParent(element);
+			HTMLElement* ref = HTMLElement::GetPositionReferableParent(element);
 			bypassAllowPositive = TestCoordinates(ref, x, y);
 		}
 
-		BLIB::KeyPointerPair* value = BLIB::KeyPointerPair::GetKeyValuePointer(element->attributes, "bGHover");
+		KeyPointerPair* value = KeyPointerPair::GetKeyValuePointer(element->attributes, "bGHover");
 		if (value != NULL)
 		{
 			if (testHovered && (allowPositive || bypassAllowPositive))
 			{
 				element->hover = true;
 
-				BLIB::PointerList* clickargs = BLIB::PointerList::SplitString((char*)value->pointer, ";");
+				PointerList* clickargs = PointerList::SplitString((char*)value->pointer, ";");
 
-				if (clickargs->count == 2 && BLIB::Strings::Compare((char*)clickargs->items[0], "bGStyle"))
+				if (clickargs->count == 2 && Strings::Compare((char*)clickargs->items[0], "bGStyle"))
 				{
 					bGStyle(element, (char*)clickargs->items[1]);
 				}
@@ -1227,7 +1229,7 @@ class BGraph
 			else
 			{
 				element->hover = false;
-				BLIB::KeyPointerPair* style = BLIB::KeyPointerPair::GetKeyValuePointer(element->attributes, "style");
+				KeyPointerPair* style = KeyPointerPair::GetKeyValuePointer(element->attributes, "style");
 
 				if (style != NULL)
 				{
@@ -1240,7 +1242,7 @@ class BGraph
 		return element->hover;
 	}
 
-	bool HandleHTMLMouseUp(BLIB::HTMLElement* element, int x, int y)
+	bool HandleHTMLMouseUp(HTMLElement* element, int x, int y)
 	{
 		if (active != NULL)
 		{
@@ -1250,18 +1252,18 @@ class BGraph
 		return true;
 	}
 
-	bool HandleHTMLMouseDown(BLIB::HTMLElement* element, int x, int y, bool allowPositive)
+	bool HandleHTMLMouseDown(HTMLElement* element, int x, int y, bool allowPositive)
 	{
 		bool bypassAllowPositive = false;
 		bool testClicked = TestCoordinates(element, x, y);
 
-		if (element->position == BLIB::HTMLElementPosition::POS_ABSOLUTE)
+		if (element->position == HTMLElementPosition::POS_ABSOLUTE)
 		{
-			BLIB::HTMLElement* ref = BLIB::HTMLElement::GetPositionReferableParent(element);
+			HTMLElement* ref = HTMLElement::GetPositionReferableParent(element);
 			bypassAllowPositive = TestCoordinates(ref, x, y);
 		}
 
-		if (element->overflowHandling == BLIB::HTMLOverflow::AUTO && element->scrollBarScaleX < 1.0f && OnHorizontalScrollbar(element, x, y))
+		if (element->overflowHandling == HTMLOverflow::AUTO && element->scrollBarScaleX < 1.0f && OnHorizontalScrollbar(element, x, y))
 		{
 			active = element;
 			lastTouched = element;
@@ -1275,7 +1277,7 @@ class BGraph
 			return true;
 		}
 
-		if (element->overflowHandling == BLIB::HTMLOverflow::AUTO && element->scrollBarScaleY < 1.0f && OnVerticalScrollbar(element, x, y))
+		if (element->overflowHandling == HTMLOverflow::AUTO && element->scrollBarScaleY < 1.0f && OnVerticalScrollbar(element, x, y))
 		{
 			active = element;
 			lastTouched = element;
@@ -1289,7 +1291,7 @@ class BGraph
 			return true;
 		}
 
-		if (element->type == BLIB::HTMLElementType::INPUT && testClicked && (allowPositive || bypassAllowPositive))
+		if (element->type == HTMLElementType::INPUT && testClicked && (allowPositive || bypassAllowPositive))
 		{
 			active = element;
 			lastTouched = element;
@@ -1298,11 +1300,11 @@ class BGraph
 
 		for (int i = element->children.size() - 1; i >= 0; i--)
 		{
-			if (HandleHTMLMouseDown(element->children.at(i), x, y, testClicked || element->overflowHandling == BLIB::HTMLOverflow::VISIBLE))
+			if (HandleHTMLMouseDown(element->children.at(i), x, y, testClicked || element->overflowHandling == HTMLOverflow::VISIBLE))
 				return true;
 		}
 
-		bool bGClick = BLIB::KeyPointerPair::GetKeyValuePointer(element->attributes, "bGClick") != NULL;
+		bool bGClick = KeyPointerPair::GetKeyValuePointer(element->attributes, "bGClick") != NULL;
 		if (testClicked && (allowPositive || bypassAllowPositive) && bGClick)
 		{
 			lastTouched = element;
@@ -1312,26 +1314,26 @@ class BGraph
 		return false;
 	}
 
-	bool HandleHTMLClick(BLIB::HTMLElement* element, int x, int y, bool allowPositive)
+	bool HandleHTMLClick(HTMLElement* element, int x, int y, bool allowPositive)
 	{
 		bool bypassAllowPositive = false;
 		bool testClicked = TestCoordinates(element, x, y);
 
-		if (element->position == BLIB::HTMLElementPosition::POS_ABSOLUTE)
+		if (element->position == HTMLElementPosition::POS_ABSOLUTE)
 		{
-			BLIB::HTMLElement* ref = BLIB::HTMLElement::GetPositionReferableParent(element);
+			HTMLElement* ref = HTMLElement::GetPositionReferableParent(element);
 			bypassAllowPositive = TestCoordinates(ref, x, y);
 		}
 
 		for (int i = element->children.size() - 1; i >= 0; i--)
 		{
-			if (HandleHTMLClick(element->children.at(i), x, y, testClicked || element->overflowHandling == BLIB::HTMLOverflow::VISIBLE))
+			if (HandleHTMLClick(element->children.at(i), x, y, testClicked || element->overflowHandling == HTMLOverflow::VISIBLE))
 				return true;
 		}
 
 		if (testClicked && (allowPositive || bypassAllowPositive) && lastTouched == element)
 		{
-			if (element == active && active->inputType == BLIB::HTMLInputType::CHECKBOX)
+			if (element == active && active->inputType == HTMLInputType::CHECKBOX)
 			{
 				active->checked = !active->checked;
 				active->bGr = 255 - active->bGr;
@@ -1339,13 +1341,13 @@ class BGraph
 				active->bGb = 255 - active->bGb;
 
 
-				BLIB::KeyPointerPair* val = BLIB::KeyPointerPair::GetKeyValuePointer(active->attributes, "value");
+				KeyPointerPair* val = KeyPointerPair::GetKeyValuePointer(active->attributes, "value");
 
-				if (val != NULL && BLIB::Strings::Contains((char*)val->pointer, "{{"))
+				if (val != NULL && Strings::Contains((char*)val->pointer, "{{"))
 				{
-					char* varName = BLIB::Strings::Replace((char*)val->pointer, "{{", "");
-					BLIB::Strings::FreeAndAssign(&varName, BLIB::Strings::Replace(varName, "}}", ""));
-					BLIB::Strings::FreeAndAssign(&varName, BLIB::Strings::Trim(varName));
+					char* varName = Strings::Replace((char*)val->pointer, "{{", "");
+					Strings::FreeAndAssign(&varName, Strings::Replace(varName, "}}", ""));
+					Strings::FreeAndAssign(&varName, Strings::Trim(varName));
 
 					if (active->checked)
 						SetVariable(varName, "false", true);
@@ -1359,25 +1361,25 @@ class BGraph
 				return true;
 			}
 
-			BLIB::KeyPointerPair* value = BLIB::KeyPointerPair::GetKeyValuePointer(element->attributes, "bGClick");
+			KeyPointerPair* value = KeyPointerPair::GetKeyValuePointer(element->attributes, "bGClick");
 			if (value != NULL)
 			{
-				BLIB::PointerList* clickargs = BLIB::PointerList::SplitString((char*)value->pointer, ";");
+				PointerList* clickargs = PointerList::SplitString((char*)value->pointer, ";");
 
-				if (clickargs->count == 2 && BLIB::Strings::Compare((char*)clickargs->items[0], "bGNavigate"))
+				if (clickargs->count == 2 && Strings::Compare((char*)clickargs->items[0], "bGNavigate"))
 				{
 					bGNavigate((char*)clickargs->items[1]);
 				}
 
-				if (clickargs->count == 2 && BLIB::Strings::Compare((char*)clickargs->items[0], "bGStyle"))
+				if (clickargs->count == 2 && Strings::Compare((char*)clickargs->items[0], "bGStyle"))
 				{
 					bGStyle(element, (char*)clickargs->items[1]);
 				}
 
-				if (clickargs->count == 3 && BLIB::Strings::Compare((char*)clickargs->items[0], "bGSet"))
+				if (clickargs->count == 3 && Strings::Compare((char*)clickargs->items[0], "bGSet"))
 				{
 					bGSet(element, (char*)clickargs->items[1], (char*)clickargs->items[2]);
-					changedVariables->AddPointer(BLIB::Strings::Clone((char*)clickargs->items[1]));
+					changedVariables->AddPointer(Strings::Clone((char*)clickargs->items[1]));
 				}
 
 				clickargs->FreeEverything();
@@ -1388,7 +1390,7 @@ class BGraph
 		return false;
 	}
 
-	bool TestCoordinates(BLIB::HTMLElement* element, int x, int y)
+	bool TestCoordinates(HTMLElement* element, int x, int y)
 	{
 
 		float left = element->x;
@@ -1420,15 +1422,15 @@ public:
 		AddTexture(device, commandList, textTextureLocation);
 	}
 
-	void UpdateActiveKeys(BLIB::DBuffer* keys)
+	void UpdateActiveKeys(DBuffer* keys)
 	{
-		if (active != NULL && keys != NULL && active->type == BLIB::HTMLElementType::INPUT && active->inputType != BLIB::HTMLInputType::CHECKBOX && active->inputType != BLIB::HTMLInputType::RANGE)
+		if (active != NULL && keys != NULL && active->type == HTMLElementType::INPUT && active->inputType != HTMLInputType::CHECKBOX && active->inputType != HTMLInputType::RANGE)
 		{
 			unsigned char* keysPointer = keys->DataPointer(0);
 			for (int i = 0; i < keys->count; i++)
 			{
-				unsigned char character = BLIB::Keyboard::TranslateKeyboardToHTMLTextChar(keysPointer[i]);
-				BLIB::HTMLTextCharacter c;
+				unsigned char character = Keyboard::TranslateKeyboardToHTMLTextChar(keysPointer[i]);
+				HTMLTextCharacter c;
 				c.character = character; 
 				if (character != 0x8)
 					active->characters.push_back(c);
@@ -1438,12 +1440,12 @@ public:
 			}
 
 			/*if (active->textDirty)
-				BLIB::HTMLParser::ResolveHTML(active->parent, variables);*/
+				HTMLParser::ResolveHTML(active->parent, variables);*/
 
 			if (active->textwrap == false)
 			{
 				float totalWidth = active->characters.size() * active->fontsize;
-				float contentWidth = BLIB::HTMLElement::GetElementContentWidth(active);
+				float contentWidth = HTMLElement::GetElementContentWidth(active);
 				float overflow = totalWidth - contentWidth;
 				
 				if (overflow > 0 && !active->textwrap && active->textDirty)
@@ -1455,20 +1457,20 @@ public:
 
 			if (keys->count > 0 && active->textDirty)
 			{
-				BLIB::KeyPointerPair* val = BLIB::KeyPointerPair::GetKeyValuePointer(active->attributes, "value");
+				KeyPointerPair* val = KeyPointerPair::GetKeyValuePointer(active->attributes, "value");
 
-				if (val != NULL && BLIB::Strings::Contains((char*)val->pointer, "{{"))
+				if (val != NULL && Strings::Contains((char*)val->pointer, "{{"))
 				{
-					char* varName = BLIB::Strings::Replace((char*)val->pointer, "{{", "");
-					BLIB::Strings::FreeAndAssign(&varName, BLIB::Strings::Replace(varName, "}}", ""));
-					BLIB::Strings::FreeAndAssign(&varName, BLIB::Strings::Trim(varName));
+					char* varName = Strings::Replace((char*)val->pointer, "{{", "");
+					Strings::FreeAndAssign(&varName, Strings::Replace(varName, "}}", ""));
+					Strings::FreeAndAssign(&varName, Strings::Trim(varName));
 
 					int size = active->characters.size();
 					char* newString = (char*)malloc(size + 1);
 					newString[size] = 0;
 					for (int i = 0; i < size; i++)
 					{
-						newString[i] = BLIB::Keyboard::TranslateHTMLTextCharToKeyboard(active->characters.at(i).character);
+						newString[i] = Keyboard::TranslateHTMLTextCharToKeyboard(active->characters.at(i).character);
 					}
 
 					SetVariable(varName, newString, false);
@@ -1523,7 +1525,7 @@ public:
 			}
 
 			for (int i = 0; i < active->children.size(); i++)
-				BLIB::HTMLElement::ApplyScrolling(diffX * active->scrollBarShiftScaleX, diffY * active->scrollBarShiftScaleY, active->children.at(i), active);
+				HTMLElement::ApplyScrolling(diffX * active->scrollBarShiftScaleX, diffY * active->scrollBarShiftScaleY, active->children.at(i), active);
 
 			return;
 		}
@@ -1531,12 +1533,12 @@ public:
 		HandleHTMLHover(current, x, y, true);
 	}
 
-	BLIB::PointerList* GetChangedVariables()
+	PointerList* GetChangedVariables()
 	{
-		BLIB::PointerList* output = new BLIB::PointerList();
+		PointerList* output = new PointerList();
 		for (int i = 0; i < changedVariables->count; i++)
 		{
-			output->AddPointer(BLIB::Strings::Clone((char*)changedVariables->items[i]));
+			output->AddPointer(Strings::Clone((char*)changedVariables->items[i]));
 		}
 		return output;
 	}
@@ -1551,8 +1553,8 @@ public:
 
 	void DeleteVariable(char* variableName)
 	{
-		BLIB::JSONElement* element = BLIB::JSONElement::GetElement(variableName, variables, false);
-		BLIB::JSONElement* parent = element->parent;
+		JSONElement* element = JSONElement::GetElement(variableName, variables, false);
+		JSONElement* parent = element->parent;
 		for (int i = 0; i < parent->children->count; i++)
 		{
 			if (parent->children->items[i] == element)
@@ -1563,7 +1565,7 @@ public:
 		}
 	}
 
-	void ScrollChangeAdapterX(BLIB::HTMLElement* element, float* change)
+	void ScrollChangeAdapterX(HTMLElement* element, float* change)
 	{
 		if (element->scrollPosX + *change <= element->actualWidth - (((element->actualWidth - element->scrollSpacing)) * element->scrollBarScaleX))
 		{
@@ -1590,7 +1592,7 @@ public:
 		}
 	}
 
-	void ScrollChangeAdapterY(BLIB::HTMLElement* element, float* change)
+	void ScrollChangeAdapterY(HTMLElement* element, float* change)
 	{
 		if (element->scrollPosY + *change <= element->actualHeight - (((element->actualHeight - element->scrollSpacing)) * element->scrollBarScaleY))
 		{
@@ -1617,22 +1619,22 @@ public:
 		}
 	}
 
-	void FindLinkedPages(BLIB::HTMLElement* element)
+	void FindLinkedPages(HTMLElement* element)
 	{
 
-		BLIB::KeyPointerPair* value = BLIB::KeyPointerPair::GetKeyValuePointer(element->attributes, "bGClick");
+		KeyPointerPair* value = KeyPointerPair::GetKeyValuePointer(element->attributes, "bGClick");
 		if (value != NULL)
 		{
-			BLIB::PointerList* clickargs = BLIB::PointerList::SplitString((char*)value->pointer, ";");
+			PointerList* clickargs = PointerList::SplitString((char*)value->pointer, ";");
 
-			if (clickargs->count == 2 && BLIB::Strings::Compare((char*)clickargs->items[0], "bGNavigate"))
+			if (clickargs->count == 2 && Strings::Compare((char*)clickargs->items[0], "bGNavigate"))
 			{
-				char* fileName = BLIB::Strings::Concat((char*) clickargs->items[1], ".html");
+				char* fileName = Strings::Concat((char*) clickargs->items[1], ".html");
 				bool found = false;
 
 				for (int i = 0; i < files.size(); i++)
 				{
-					if (BLIB::Strings::Compare(fileName, files.at(i)))
+					if (Strings::Compare(fileName, files.at(i)))
 					{
 						found = true;
 						break;
@@ -1722,7 +1724,7 @@ public:
 		ID3DBlob* psBlob = NULL;
 		ID3DBlob* pserror = NULL;
 
-		D3DCompile(htmlVectorShader, BLIB::Strings::Length(htmlVectorShader), NULL, NULL, NULL, "VSMain", "vs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, NULL, &vsBlob, &vserror);
+		D3DCompile(htmlVectorShader, Strings::Length(htmlVectorShader), NULL, NULL, NULL, "VSMain", "vs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, NULL, &vsBlob, &vserror);
 
 		if (vserror != NULL)
 		{
@@ -1732,9 +1734,9 @@ public:
 			vserror->Release();
 		}
 
-		char* fullShader = BLIB::Strings::Concat(htmlPixelShader, htmlPixelShaderPT2);
+		char* fullShader = Strings::Concat(htmlPixelShader, htmlPixelShaderPT2);
 
-		D3DCompile(fullShader, BLIB::Strings::Length(fullShader), NULL, NULL, NULL, "PSMain", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, NULL, &psBlob, &pserror);
+		D3DCompile(fullShader, Strings::Length(fullShader), NULL, NULL, NULL, "PSMain", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, NULL, &psBlob, &pserror);
 
 		free(fullShader);
 
@@ -1868,19 +1870,19 @@ public:
 		DrawHTML(current, device, commandList, dData, sc);
 	}
 
-	void DrawHTML(BLIB::HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData, D3D12_RECT* sc)
+	void DrawHTML(HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData, D3D12_RECT* sc)
 	{
-		BLIB::HTMLElement* scP = NULL;
+		HTMLElement* scP = NULL;
 		if (element->parent != NULL) 
 		{
-			if (element->position == BLIB::HTMLElementPosition::POS_ABSOLUTE)
+			if (element->position == HTMLElementPosition::POS_ABSOLUTE)
 			{
-				scP = BLIB::HTMLElement::GetPositionReferableParent(element);
-				scP = BLIB::HTMLElement::GetScissorParent(scP->children.at(0));
+				scP = HTMLElement::GetPositionReferableParent(element);
+				scP = HTMLElement::GetScissorParent(scP->children.at(0));
 			}
 			else
 			{
-				scP = BLIB::HTMLElement::GetScissorParent(element);
+				scP = HTMLElement::GetScissorParent(element);
 			}
 			sc->left = (scP->x + scP->bTl);
 			sc->top = (scP->y + scP->bTt);
@@ -1941,12 +1943,12 @@ public:
 		{
 			dData->tempSettings.bools = 1;
 			char* location = element->imageLocation;
-			BLIB::KeyPointerPair* img = BLIB::KeyPointerPair::GetKeyValuePointer(dData->modelTextures, location);
+			KeyPointerPair* img = KeyPointerPair::GetKeyValuePointer(dData->modelTextures, location);
 
 			if (img == NULL)
 			{
 				AddTexture(device, cL, location);
-				img = BLIB::KeyPointerPair::GetKeyValuePointer(dData->modelTextures, location);
+				img = KeyPointerPair::GetKeyValuePointer(dData->modelTextures, location);
 			}
 
 			ImageStorage* imgS = (ImageStorage*)img->pointer;
@@ -1966,7 +1968,7 @@ public:
 			sc->bottom = (element->y + element->actualHeight) - element->bTb;
 			cL->RSSetScissorRects(1, sc);
 
-			BLIB::KeyPointerPair* kpp = BLIB::KeyPointerPair::GetKeyValuePointer(dData->modelTextures, textTextureLocation);
+			KeyPointerPair* kpp = KeyPointerPair::GetKeyValuePointer(dData->modelTextures, textTextureLocation);
 			ImageStorage* imS = (ImageStorage*)kpp->pointer;
 			D3D12_GPU_DESCRIPTOR_HANDLE hnd = dData->textureHeap->GetGPUDescriptorHandleForHeapStart();
 			hnd.ptr += textureHeapIncrementSize * imS->index;
@@ -2002,7 +2004,7 @@ public:
 
 		for (int i = 0; i < element->children.size(); i++)
 		{
-			BLIB::HTMLElement* chld = element->children.at(i);
+			HTMLElement* chld = element->children.at(i);
 			DrawHTML(chld, device, cL, dData, sc);
 		}
 	}
@@ -2012,8 +2014,8 @@ public:
 		this->width = width;
 		this->height = height;
 		AddPage(mainpage);
-		BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)root->items[0];
-		this->current = (BLIB::HTMLElement*)kpp->pointer;
+		KeyPointerPair* kpp = (KeyPointerPair*)root->items[0];
+		this->current = (HTMLElement*)kpp->pointer;
 	}
 
 	void AddTexture(ID3D12Device10* device, ID3D12GraphicsCommandList* cL, const char* location)
@@ -2032,29 +2034,29 @@ public:
 
 		dData->textureHeapCount++;
 
-		BLIB::KeyPointerPair* nKpp = new BLIB::KeyPointerPair((char*)location, f);
+		KeyPointerPair* nKpp = new KeyPointerPair((char*)location, f);
 		dData->modelTextures->AddPointer(nKpp);
 	}
 
 	void AddPage(char* path)
 	{
-		BLIB::DBuffer* file = BLIB::Files::ReadFile(path);
+		DBuffer* file = Files::ReadFile(path);
 		file->Add((uint8_t)0);
-		BLIB::HTMLElement* element = BLIB::HTMLParser::Parse((const char*)file->DataPointer(0));
+		HTMLElement* element = HTMLParser::Parse((const char*)file->DataPointer(0));
 
 
-		AddPage(BLIB::Strings::Replace(path, ".html", ""), element);
+		AddPage(Strings::Replace(path, ".html", ""), element);
 
 		if (element->children.size() > 0)
 		{
-			BLIB::KeyPointerPair* name = BLIB::KeyPointerPair::GetKeyValuePointer(element->children.at(0)->attributes, "bGname");
+			KeyPointerPair* name = KeyPointerPair::GetKeyValuePointer(element->children.at(0)->attributes, "bGname");
 			bool destroy = false;
 			if (name != NULL)
 			{
-				if (BLIB::KeyPointerPair::GetKeyValuePointer(pages, name->key) == NULL)
+				if (KeyPointerPair::GetKeyValuePointer(pages, name->key) == NULL)
 				{
 					char* fileData = (char*)file->BufferOut(0, file->count);
-					BLIB::KeyPointerPair* kpp = new BLIB::KeyPointerPair(BLIB::Strings::Clone((char*)name->pointer), fileData);
+					KeyPointerPair* kpp = new KeyPointerPair(Strings::Clone((char*)name->pointer), fileData);
 					pages->AddPointer(kpp);
 				}
 				else
@@ -2068,8 +2070,8 @@ public:
 			}
 			if(destroy)
 			{
-				BLIB::KeyPointerPair* page = (BLIB::KeyPointerPair*)root->items[root->count - 1];
-				BLIB::HTMLElement* element = (BLIB::HTMLElement*)page->pointer;
+				KeyPointerPair* page = (KeyPointerPair*)root->items[root->count - 1];
+				HTMLElement* element = (HTMLElement*)page->pointer;
 				delete element;
 				free(page->key);
 				delete page;
@@ -2082,37 +2084,37 @@ public:
 		FindLinkedPages(element);
 	}
 
-	void AddPage(char* name, BLIB::HTMLElement* element)
+	void AddPage(char* name, HTMLElement* element)
 	{
 		element->width = width;
 		element->height = height;
 
 		GetComponents(element);
-		BLIB::HTMLParser::ResolveDynamicHTML(element, variables, components);
-		BLIB::HTMLParser::UpdateElementValues(element, variables);
-		BLIB::HTMLParser::ResolveHTML(element, variables);
+		HTMLParser::ResolveDynamicHTML(element, variables, components);
+		HTMLParser::UpdateElementValues(element, variables);
+		HTMLParser::ResolveHTML(element, variables);
 
-		BLIB::KeyPointerPair* kpp = new BLIB::KeyPointerPair(name, element);
+		KeyPointerPair* kpp = new KeyPointerPair(name, element);
 		this->root->AddPointer(kpp);
 	}
 
-	void GetComponents(BLIB::HTMLElement* element)
+	void GetComponents(HTMLElement* element)
 	{
 		if (element->tag != NULL)
 		{
-			char* fileName = BLIB::Strings::Concat(element->tag, ".html");
+			char* fileName = Strings::Concat(element->tag, ".html");
 
-			BLIB::KeyPointerPair* found = BLIB::KeyPointerPair::GetKeyValuePointer(components, element->tag);
+			KeyPointerPair* found = KeyPointerPair::GetKeyValuePointer(components, element->tag);
 			if (found == NULL)
 			{
-				if (BLIB::Files::FileExists(fileName))
+				if (Files::FileExists(fileName))
 				{
-					BLIB::DBuffer* file = BLIB::Files::ReadFile(fileName);
+					DBuffer* file = Files::ReadFile(fileName);
 					file->Add((uint8_t)0);
-					BLIB::HTMLElement* newelement = BLIB::HTMLParser::Parse((char*)file->DataPointer(0));
-					BLIB::HTMLElement* child = newelement->children.at(newelement->children.size()-1);
+					HTMLElement* newelement = HTMLParser::Parse((char*)file->DataPointer(0));
+					HTMLElement* child = newelement->children.at(newelement->children.size()-1);
 					newelement->children.pop_back();
-					components->AddPointer(new BLIB::KeyPointerPair(BLIB::Strings::Clone(element->tag), child));
+					components->AddPointer(new KeyPointerPair(Strings::Clone(element->tag), child));
 					delete newelement;
 					free(file);
 				}
@@ -2127,23 +2129,23 @@ public:
 
 	void SetVariable(const char* name, const char* json, bool allowRefresh = true)
 	{
-		BLIB::JSONElement* var = BLIB::JSONElement::GetElement(name, variables, true);
+		JSONElement* var = JSONElement::GetElement(name, variables, true);
 
-		if (var->type == BLIB::JSONElementType::NONE)
+		if (var->type == JSONElementType::NONE)
 		{
-			var->type = BLIB::JSONElementType::KVP;
+			var->type = JSONElementType::KVP;
 		}
 
 		if (var != NULL)
 		{
 			free(var->value);
-			var->value = BLIB::Strings::Clone(json);
+			var->value = Strings::Clone(json);
 		}
 		else
 		{
-			BLIB::JSONElement* newVar = new BLIB::JSONElement();
-			newVar->name = BLIB::Strings::Clone(name);
-			newVar->value = BLIB::Strings::Clone(json);
+			JSONElement* newVar = new JSONElement();
+			newVar->name = Strings::Clone(name);
+			newVar->value = Strings::Clone(json);
 			variables->children->AddPointer(newVar);
 		}
 
@@ -2153,7 +2155,7 @@ public:
 
 	const char* GetVariableValueReference(const char* name)
 	{
-		BLIB::JSONElement* var = BLIB::JSONElement::GetElement(name, variables);
+		JSONElement* var = JSONElement::GetElement(name, variables);
 
 		if (var != NULL)
 			return (char*)var->value;
@@ -2171,7 +2173,7 @@ public:
 		Refresh();
 	}
 
-	void DrawVerticleScrollbar(BLIB::HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData)
+	void DrawVerticleScrollbar(HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData)
 	{
 		/*dData->tempSettings.bools = 0;
 		dData->tempSettings.backgroundColor[0] = 0 / 255.0f;
@@ -2206,7 +2208,7 @@ public:
 		dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, NULL);
 	}
 
-	void DrawHorizontalScrollbar(BLIB::HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData)
+	void DrawHorizontalScrollbar(HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData)
 	{
 		/*dData->tempSettings.bools = 0;
 		dData->tempSettings.backgroundColor[0] = 0 / 255.0f;
@@ -2241,7 +2243,7 @@ public:
 		dData->htmlModel->Draw(device, cL, drawSettingSize, &dData->tempSettings, NULL);
 	}
 
-	bool OnVerticalScrollbar(BLIB::HTMLElement* element, int x, int y)
+	bool OnVerticalScrollbar(HTMLElement* element, int x, int y)
 	{
 		float width = element->scrollBarThickness - element->scrollSpacing;
 		float height = ((element->actualHeight - element->scrollSpacing)) * element->scrollBarScaleY;
@@ -2251,7 +2253,7 @@ public:
 		return x >= sx && x <= sx + width && y >= sy && y <= sy + height;
 	}
 
-	bool OnHorizontalScrollbar(BLIB::HTMLElement* element, int x, int y)
+	bool OnHorizontalScrollbar(HTMLElement* element, int x, int y)
 	{
 		float width = ((element->actualWidth - element->scrollSpacing)) * element->scrollBarScaleX;
 		float height = element->scrollBarThickness - element->scrollSpacing;
@@ -2263,10 +2265,10 @@ public:
 
 	void Refresh()
 	{
-		BLIB::HTMLElement::HTMLInvalidateAll(current);
-		BLIB::HTMLParser::ResolveDynamicHTML(current, variables, components);
-		BLIB::HTMLParser::UpdateElementValues(current, variables);
-		BLIB::HTMLParser::ResolveHTML(current, variables);
+		HTMLElement::HTMLInvalidateAll(current);
+		HTMLParser::ResolveDynamicHTML(current, variables, components);
+		HTMLParser::UpdateElementValues(current, variables);
+		HTMLParser::ResolveHTML(current, variables);
 	}
 
 	~BGraph()
@@ -2277,7 +2279,7 @@ public:
 
 		for (int i = 0; i < dData->modelTextures->count; i++)
 		{
-			BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)dData->modelTextures->items[i];
+			KeyPointerPair* kpp = (KeyPointerPair*)dData->modelTextures->items[i];
 			//Not Deleting the key because HTMLElement does that
 			ImageStorage* img = (ImageStorage*)kpp->pointer;
 			img->resource->Release();
@@ -2297,8 +2299,8 @@ public:
 
 		for (int i = 0; i < root->count; i++)
 		{
-			BLIB::KeyPointerPair* page = (BLIB::KeyPointerPair*)root->items[i];
-			BLIB::HTMLElement* element = (BLIB::HTMLElement*)page->pointer;
+			KeyPointerPair* page = (KeyPointerPair*)root->items[i];
+			HTMLElement* element = (HTMLElement*)page->pointer;
 			delete element;
 			free(page->key);
 			delete page;
@@ -2306,23 +2308,23 @@ public:
 
 		for (int i = 0; i < functions->count; i++)
 		{
-			BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)functions->items[i];
+			KeyPointerPair* kpp = (KeyPointerPair*)functions->items[i];
 			free(kpp->key);
 			// Not Freeing the function pointers.
 			delete kpp;
 		}
 		for (int i = 0; i < pages->count; i++)
 		{
-			BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)pages->items[i];
+			KeyPointerPair* kpp = (KeyPointerPair*)pages->items[i];
 			free(kpp->key);
 			free(kpp->pointer); 
 			delete kpp;
 		}
 		for (int i = 0; i < components->count; i++)
 		{
-			BLIB::KeyPointerPair* kpp = (BLIB::KeyPointerPair*)components->items[i];
+			KeyPointerPair* kpp = (KeyPointerPair*)components->items[i];
 			free(kpp->key);
-			BLIB::HTMLElement* element = (BLIB::HTMLElement*)kpp->pointer;
+			HTMLElement* element = (HTMLElement*)kpp->pointer;
 			delete element;
 			delete kpp;
 		}
