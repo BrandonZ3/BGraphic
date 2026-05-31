@@ -6,14 +6,14 @@
 #include <string>
 #include <vector>
 
-#include "PointerList.h"
-#include "JSON.h"
-#include "HTML.h"
-#include "DBuffer.h"
-#include "KeyPointerPair.h"
-#include "Strings.h"
-#include "Keyboard.h"
-#include "Files.h"
+#include "../../Library/PointerList.h"
+#include "../../Library/JSON.h"
+#include "../../Library/HTML.h"
+#include "../../Library/DBuffer.h"
+#include "../../Library/KeyPointerPair.h"
+#include "../../Library/Strings.h"
+#include "../../Library/Keyboard.h"
+#include "../../Library/Files.h"
 
 const char* htmlVectorShader = R"(
 
