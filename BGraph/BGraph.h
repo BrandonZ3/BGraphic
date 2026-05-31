@@ -1,6 +1,6 @@
 #pragma once
 #include "../../CPP Lib/BLIB.h"
-#define STB_IMAGE_IMPLEMENTATION
+//#define STB_IMAGE_IMPLEMENTATION	//These 2 lines should be included in the project that uses BGraph.
 //#include "stb_image.h"
 #include <d3d12.h>
 #include <d3dcompiler.h>
@@ -100,11 +100,11 @@ PSInput VSMain(float2 position : POSITION, float2 texcoords: TEXCOORD)
 		float percW = (width / (float) renderWidth);
 		float percH = (height / (float) renderHeight);
     
-		float baseShiftX = (((float) renderWidth / 2) / (float) renderWidth) * -2; //moving the box to x == 0 or L
-		float baseShiftY = (((float) renderHeight / 2) / (float) renderHeight) * 2; //moving the box to y == 0 or T
+		float baseShiftX = (((float) renderWidth / 2) / (float) renderWidth) * -2; 
+		float baseShiftY = (((float) renderHeight / 2) / (float) renderHeight) * 2; 
     
-		float shiftPosX = x / (float) renderWidth;          //Use this to move to appropriate X
-		float shiftPosY = (y / (float) renderHeight) * -1;  //Use this to move to appropriate Y
+		float shiftPosX = x / (float) renderWidth;          
+		float shiftPosY = (y / (float) renderHeight) * -1;  
     
 		float xScaledAndShifted = ((position.x * percW) + percW) + baseShiftX + (shiftPosX * 2);
 		float yScaledAndShifted = ((position.y * percH) - percH) + baseShiftY + (shiftPosY * 2);
@@ -192,8 +192,8 @@ float4 PSMain(PSInput input) : SV_TARGET
     
     if(!drawImage && !drawText)
     {
-        float ypos = y; //- (actualHeight / 2);
-        float xpos = x; // - (actualWidth / 2);
+        float ypos = y; 
+        float xpos = x; 
 		/*ypos = ceil(ypos);
 		xpos = ceil(xpos);*/
     
@@ -240,7 +240,7 @@ float4 PSMain(PSInput input) : SV_TARGET
                 float ellipseVal = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
                 if (ellipseVal > 1.0 && input.position.x < (nxpos + rx) && input.position.y < (nypos + ry))
                     if(ly < input.position.y - ypos)
-                        return bordercolorleft; //discard; // inside inner ellipse
+                        return bordercolorleft; 
                     else
                         return bordercolortop;
             }
@@ -278,9 +278,9 @@ float4 PSMain(PSInput input) : SV_TARGET
                 float ellipseVal = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
                 if (ellipseVal > 1.0 && input.position.x > (nxpos - rx) && input.position.y < (nypos + ry))
                     if (ly < input.position.y - ypos)
-                        return bordercolorright; //discard; // inside inner ellipse
+                        return bordercolorright; 
                     else
-                        return bordercolortop; //discard; // inside inner ellipse
+                        return bordercolortop; 
             }
         }
     
@@ -316,9 +316,9 @@ float4 PSMain(PSInput input) : SV_TARGET
                 float ellipseVal = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
                 if (ellipseVal > 1.0 && input.position.x < (nxpos + rx) && input.position.y > (nypos - ry))
                     if (ly < input.position.y - (ypos + height))
-                        return bordercolorbottom; //discard; // inside inner ellipse
+                        return bordercolorbottom; 
                     else
-                        return bordercolorleft; //discard; // inside inner ellipse
+                        return bordercolorleft; 
             }
         }
     
@@ -357,9 +357,9 @@ const char* htmlPixelShaderPT2 = R"(
                 float ellipseVal = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
                 if (ellipseVal > 1.0 && input.position.x > (nxpos - rx) && input.position.y > (nypos - ry))
                     if (ly < input.position.y - (ypos + height))
-                        return bordercolorbottom; //discard; // inside inner ellipse
+                        return bordercolorbottom; 
                     else
-                        return bordercolorright; //discard; // inside inner ellipse
+                        return bordercolorright; 
             }
         }
     
@@ -808,9 +808,6 @@ public:
 	D3D12_INDEX_BUFFER_VIEW Indices;
 	uint64_t indexCount;
 
-	/*char* vertexdata;
-	char* indexdata;*/
-
 	GraphicsModel(ID3D12Device10* device, ID3D12GraphicsCommandList* commandList, GraphicsModule2D* graphmod)
 	{
 		this->graphicsModule = graphmod;
@@ -1245,33 +1242,6 @@ class BGraph
 
 	bool HandleHTMLMouseUp(BLIB::HTMLElement* element, int x, int y)
 	{
-		//Have to check if its scroll bar first.
-		/*if (OnHorizontalScrollbar(element, x, y))
-		{
-			active = element;
-			element->scrollYSelected = false;
-			element->scrollXSelected = true;
-			element->scrollStartX = x;
-			element->scrollStartY = y;
-			return true;
-		}
-
-		if (OnVerticalScrollbar(element, x, y))
-		{
-			active = element;
-			element->scrollYSelected = true;
-			element->scrollXSelected = false;
-			element->scrollStartX = x;
-			element->scrollStartY = y;
-			return true;
-		}
-
-		for (int i = element->children.size() - 1; i >= 0; i--)
-		{
-			if (HandleHTMLClick(element->children.at(i), x, y))
-				return true;
-		}*/
-
 		if (active != NULL)
 		{
 			active->scrollXSelected = false;
@@ -1291,7 +1261,6 @@ class BGraph
 			bypassAllowPositive = TestCoordinates(ref, x, y);
 		}
 
-		//Have to check if its scroll bar first.
 		if (element->overflowHandling == BLIB::HTMLOverflow::AUTO && element->scrollBarScaleX < 1.0f && OnHorizontalScrollbar(element, x, y))
 		{
 			active = element;
@@ -1383,7 +1352,7 @@ class BGraph
 					else
 						SetVariable(varName, "false", true);
 					
-					changedVariables->AddPointer(varName);//free(varName);
+					changedVariables->AddPointer(varName);
 				}
 
 
@@ -1397,7 +1366,6 @@ class BGraph
 
 				if (clickargs->count == 2 && BLIB::Strings::Compare((char*)clickargs->items[0], "bGNavigate"))
 				{
-					///////////////// Need to make sure that bGname is taken out and the name of the file is the pagename.
 					bGNavigate((char*)clickargs->items[1]);
 				}
 
@@ -1503,7 +1471,7 @@ public:
 						newString[i] = BLIB::Keyboard::TranslateHTMLTextCharToKeyboard(active->characters.at(i).character);
 					}
 
-					SetVariable(varName, newString, false);//This is not gonna work for nested json
+					SetVariable(varName, newString, false);
 
 					free(newString);
 					free(varName);
@@ -1903,7 +1871,7 @@ public:
 	void DrawHTML(BLIB::HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData, D3D12_RECT* sc)
 	{
 		BLIB::HTMLElement* scP = NULL;
-		if (element->parent != NULL) //what about absolute positioned items? their relative positioning parent must be the sc
+		if (element->parent != NULL) 
 		{
 			if (element->position == BLIB::HTMLElementPosition::POS_ABSOLUTE)
 			{
@@ -2006,7 +1974,7 @@ public:
 			dData->tempSettings.bools = 2;
 			dData->tempSettings.font = element->font;
 			dData->tempSettings.fontsize = element->fontsize;
-			dData->tempSettings.scaleX = (imS->width / 100.0f) / imS->width; //this should be fixed, the 100 on this line and 2 on next should be dynamic
+			dData->tempSettings.scaleX = (imS->width / 100.0f) / imS->width; //this shouldnt be fixed values, the 100 on this line and 2 on next should be dynamic
 			dData->tempSettings.scaleY = (imS->height / 2.0f) / imS->height;
 
 			for (int i = 0; i < charsize; i++)
@@ -2075,7 +2043,6 @@ public:
 		BLIB::HTMLElement* element = BLIB::HTMLParser::Parse((const char*)file->DataPointer(0));
 
 
-		//////////////FIXXX MEEEEEEEEE path is assumed to just be file name ///////ALSO what about bGname ?????
 		AddPage(BLIB::Strings::Replace(path, ".html", ""), element);
 
 		if (element->children.size() > 0)
@@ -2318,7 +2285,7 @@ public:
 			delete img;
 			delete kpp;
 		}
-		//dData->modelTextures->FreeEverything();
+
 		delete dData->modelTextures;
 
 		delete dData;
@@ -2361,9 +2328,6 @@ public:
 		}
 
 		delete root;
-
-		//functions->FreeEverything();
-		//pages->FreeEverything();
 		delete functions;
 		delete pages;
 		delete variables;
