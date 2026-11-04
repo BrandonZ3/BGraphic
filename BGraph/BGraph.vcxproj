@@ -128,7 +128,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\CPP Lib\BLIB.cpp" />
-    <ClCompile Include="BGraph.h" />
+    <ClCompile Include="BGraph.cpp" />
+    <ClInclude Include="BGraph.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\CPP Lib\BLIB.h" />

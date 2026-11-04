@@ -18,7 +18,7 @@
     <ClCompile Include="..\..\CPP Lib\BLIB.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="BGraph.h">
+    <ClCompile Include="BGraph.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -27,6 +27,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="stb_image.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BGraph.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
