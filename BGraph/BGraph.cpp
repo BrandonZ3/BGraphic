@@ -1426,13 +1426,16 @@ void BGraph::ClearChangedVariables()
 void BGraph::DeleteVariable(char* variableName)
 {
     JSONElement* element = JSONElement::GetElement(variableName, variables, false);
-    JSONElement* parent = element->parent;
-    for (int i = 0; i < parent->children->count; i++)
+    if (element != NULL)
     {
-        if (parent->children->items[i] == element)
+        JSONElement* parent = element->parent;
+        for (int i = 0; i < parent->children->count; i++)
         {
-            parent->children->RemovePointer(i);
-            delete element;
+            if (parent->children->items[i] == (void*)element)
+            {
+                parent->children->RemovePointer(i);
+                delete element;
+            }
         }
     }
 }
@@ -2147,6 +2150,11 @@ bool BGraph::OnHorizontalScrollbar(HTMLElement* element, int x, int y)
     float sy = (element->y + element->actualHeight) - element->scrollBarThickness + (element->scrollSpacing / 2);
 
     return x >= sx && x <= sx + width && y >= sy && y <= sy + height;
+}
+
+void BGraph::Navigate(const char* pagename)
+{
+    bGNavigate(pagename);
 }
 
 void BGraph::Refresh()

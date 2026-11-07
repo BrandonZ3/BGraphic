@@ -203,6 +203,7 @@ public:
 	void DrawHorizontalScrollbar(HTMLElement* element, ID3D12Device10* device, ID3D12GraphicsCommandList* cL, DrawingData* dData);
 	bool OnVerticalScrollbar(HTMLElement* element, int x, int y);
 	bool OnHorizontalScrollbar(HTMLElement* element, int x, int y);
+	void Navigate(const char* pagename);
 	void Refresh();
 	~BGraph();
 };
