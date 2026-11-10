@@ -1094,6 +1094,13 @@ bool BGraph::HandleHTMLHover(HTMLElement* element, int x, int y, bool allowPosit
         else
         {
             element->hover = false;
+            KeyPointerPair* classKPP = KeyPointerPair::GetKeyValuePointer(element->attributes, "class");
+
+            if (classKPP != NULL)
+            {
+                HTMLParser::ParseClassStyling(element, (char*)classKPP->pointer);
+            }
+
             KeyPointerPair* style = KeyPointerPair::GetKeyValuePointer(element->attributes, "style");
 
             if (style != NULL)
