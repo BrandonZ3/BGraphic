@@ -1039,7 +1039,7 @@ bool BGraph::HandleHTMLScroll(HTMLElement* element, int x, int y, int scroll, bo
     if (!element->scrollBarScaleXDirty && testDetected && shift)
     {
         float width = element->actualWidth - (element->actualWidth * element->scrollBarScaleX);
-        float toScroll = (width * 0.05) * scroll;
+        float toScroll = 5 * scroll;
         ScrollChangeAdapterX(element, &toScroll);
         for (int i = 0; i < element->children.size(); i++)
             HTMLElement::ApplyScrolling(toScroll * element->scrollBarShiftScaleX, 0, element->children.at(i), element);
@@ -1048,7 +1048,7 @@ bool BGraph::HandleHTMLScroll(HTMLElement* element, int x, int y, int scroll, bo
     else if (!element->scrollBarScaleYDirty && testDetected)
     {
         float height = element->actualHeight - (element->actualHeight * element->scrollBarScaleY);
-        float toScroll = (height * 0.05) * scroll;
+        float toScroll = 5 * scroll;
         ScrollChangeAdapterY(element, &toScroll);
         for (int i = 0; i < element->children.size(); i++)
             HTMLElement::ApplyScrolling(0, toScroll * element->scrollBarShiftScaleY, element->children.at(i), element);
@@ -1168,6 +1168,10 @@ bool BGraph::HandleHTMLMouseDown(HTMLElement* element, int x, int y, bool allowP
         active = element;
         lastTouched = element;
         return true;
+    }
+    else if (active == element && !testClicked)
+    {
+        active = NULL;
     }
 
     for (int i = element->children.size() - 1; i >= 0; i--)
@@ -1845,9 +1849,9 @@ void BGraph::DrawHTML(HTMLElement* element, ID3D12Device10* device, ID3D12Graphi
     if (charsize > 0)
     {
         sc->left = (element->x + element->bTl);
-        sc->top = (element->y + element->bTt);
+        //sc->top = (element->y + element->bTt);                            //The parent decides this
         sc->right = (element->x + element->actualWidth) - element->bTr;
-        sc->bottom = (element->y + element->actualHeight) - element->bTb;
+        //sc->bottom = (element->y + element->actualHeight) - element->bTb; //The parent decides this
         cL->RSSetScissorRects(1, sc);
 
         KeyPointerPair* kpp = KeyPointerPair::GetKeyValuePointer(dData->modelTextures, textTextureLocation);
