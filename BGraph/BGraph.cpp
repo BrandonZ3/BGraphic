@@ -1883,16 +1883,18 @@ void BGraph::DrawHTML(HTMLElement* element, ID3D12Device10* device, ID3D12Graphi
         }
     }
 
-    if (element->scrollBarScaleX < 1.0f)
-        DrawHorizontalScrollbar(element, device, cL, dData);
-    if (element->scrollBarScaleY < 1.0f)
-        DrawVerticleScrollbar(element, device, cL, dData);
+    DrawingData copy = *dData;
 
     for (int i = 0; i < element->children.size(); i++)
     {
         HTMLElement* chld = element->children.at(i);
         DrawHTML(chld, device, cL, dData, sc);
     }
+
+    if (element->scrollBarScaleX < 1.0f)
+        DrawHorizontalScrollbar(element, device, cL, &copy);
+    if (element->scrollBarScaleY < 1.0f)
+        DrawVerticleScrollbar(element, device, cL, &copy);
 }
 
 void BGraph::Initialize(char* mainpage, int width, int height)
